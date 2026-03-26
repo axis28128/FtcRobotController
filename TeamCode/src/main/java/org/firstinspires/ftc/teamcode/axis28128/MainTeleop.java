@@ -26,6 +26,7 @@ public class MainTeleop extends OpMode {
     public static double maxTransferServoPos = 0.8;
     public static double shooterRampUpTimer = 3.1;
     public static double TURRET_TPR = 28 * 3 * 4 * 3.3, TURRET_TICKS_PER_RADIAN = TURRET_TPR / (2 * Math.PI), TURRET_PWR = 0.1;
+    public static double TURRET_L_BOUND, TURRET_R_BOUND;
     public DcMotor shooterMotor, transferMotor, turretMotor, intake;
     public CRServo spindex;
     public Servo bootkick, shooterServo;
@@ -37,6 +38,14 @@ public class MainTeleop extends OpMode {
     }
     public void setTurretAngle(double radians, double pwr) {
         //Update turretMotor angle in radians
+        //when going out of bounds, need to +2Math.PI or -2Math.PI (full rotation so that cables won't fuck themselves)
+        if(turretMotor.getCurrentPosition() + (int)(TURRET_TICKS_PER_RADIAN * radians) > TURRET_L_BOUND) {
+            setTurretAngle(radians-(2*Math.PI), pwr);
+            return;
+        } else if(turretMotor.getCurrentPosition() + (int)(TURRET_TICKS_PER_RADIAN*radians) < TURRET_R_BOUND) {
+            setTurretAngle(radians+(2*Math.PI), pwr);
+            return;
+        }
         turretMotor.setTargetPosition(turretMotor.getCurrentPosition() + (int)(TURRET_TICKS_PER_RADIAN * radians));
         turretMotor.setPower(pwr);
         turretMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
@@ -75,7 +84,6 @@ public class MainTeleop extends OpMode {
         //Sensors used in spindexer for tracking and current index position balls inside indexer
         colorSensor = hardwareMap.get(NormalizedColorSensor.class, "colorSensor");
         distanceMeasure = hardwareMap.get(DistanceSensor.class, "distanceSensor");
-
 
         //motor behaviors, set servo init positions
         bootkick.setPosition(0);
