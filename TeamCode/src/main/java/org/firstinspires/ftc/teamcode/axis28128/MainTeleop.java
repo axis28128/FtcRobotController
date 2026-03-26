@@ -25,8 +25,8 @@ public class MainTeleop extends OpMode {
     public TelemetryManager telemetryM;
     public static double maxTransferServoPos = 0.8;
     public static double shooterRampUpTimer = 3.1;
-    public static double TURRET_TPR = 28 * 3 * 4 * 3.3, TURRET_TICKS_PER_RADIAN = TURRET_TPR / (2 * Math.PI), TURRET_PWR = 0.1;
-    public static double TURRET_L_BOUND, TURRET_R_BOUND;
+    public static double TURRET_TPR = 28 * 35.64, TURRET_TICKS_PER_RADIAN = TURRET_TPR / (2 * Math.PI), TURRET_PWR = 0.1;
+    public static double TURRET_L_BOUND = TURRET_TPR, TURRET_R_BOUND = 0;
     public DcMotor shooterMotor, transferMotor, turretMotor, intake;
     public CRServo spindex;
     public Servo wheelKicker, shooterServo;
@@ -36,17 +36,22 @@ public class MainTeleop extends OpMode {
         if(shouldTransfer) wheelKicker.setPosition(maxTransferServoPos);
         else wheelKicker.setPosition(0);
     }
-    public void setTurretAngle(double radians, double pwr) {
-        //Update turretMotor angle in radians
-        //when going out of bounds, need to +2Math.PI or -2Math.PI (full rotation so that cables won't fuck themselves)
-        if(turretMotor.getCurrentPosition() + (int)(TURRET_TICKS_PER_RADIAN * radians) > TURRET_L_BOUND) {
-            setTurretAngle(radians-(2*Math.PI), pwr);
-            return;
-        } else if(turretMotor.getCurrentPosition() + (int)(TURRET_TICKS_PER_RADIAN*radians) < TURRET_R_BOUND) {
-            setTurretAngle(radians+(2*Math.PI), pwr);
+    public void setTurretAngle(double targetRadians, double pwr) {
+        targetRadians = targetRadians % (2 * Math.PI);
+        if (targetRadians < 0) targetRadians += 2 * Math.PI;
+        double currentRadians = getTurretAngle();
+        double delta = targetRadians - currentRadians;
+        if (delta > Math.PI) {
+            delta -= 2 * Math.PI;
+        } else if (delta < -Math.PI) {
+            delta += 2 * Math.PI;
+        }
+        if (Math.abs(delta) < 0.01) {
+            turretMotor.setPower(0);
             return;
         }
-        turretMotor.setTargetPosition(turretMotor.getCurrentPosition() + (int)(TURRET_TICKS_PER_RADIAN * radians));
+        int targetTicks = (int)((currentRadians + delta) * TURRET_TICKS_PER_RADIAN);
+        turretMotor.setTargetPosition(targetTicks);
         turretMotor.setPower(pwr);
         turretMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
     }
@@ -62,6 +67,10 @@ public class MainTeleop extends OpMode {
         thy = 144 - ry;
         return Math.atan2(thy, thx);
     }
+    public double getTurretAngle() {
+        return turretMotor.getCurrentPosition() / TURRET_TICKS_PER_RADIAN;
+    }
+
     public boolean wasPressed = false, isShooting = false;
     public static ElapsedTime shootSeqTimer = new ElapsedTime();
     @Override
@@ -145,7 +154,7 @@ public class MainTeleop extends OpMode {
         //more logic for indexer should be implemented (ballCounter)
         double measuredDistance = distanceMeasure.getDistance(DistanceUnit.MM);
         if(measuredDistance <= 127 && !isShooting) spindex.setPower(0.17);
-        else if (!isShooting) spindex.setPower(gamepad1.left_trigger-gamepad1.right_trigger);
+        else if (!isShooting) spindex.setPower((gamepad1.left_trigger-gamepad1.right_trigger)/Math.PI);
 
         //teleop drive (pedropathing), field-centric
         follower.setTeleOpDrive(-gamepad1.left_stick_y,
@@ -165,7 +174,7 @@ public class MainTeleop extends OpMode {
         } else if(gamepad1.dpad_down) {
             shooterServo.setPosition(shooterServo.getPosition() - 0.01);
         } else {
-            //stupid but makes code look more organised
+            //stupid but makes code look more organized
             shooterServo.setPosition(shooterServo.getPosition());
         }
         telemetry.addData("Shooter servo (angle): ", shooterServo.getPosition());
