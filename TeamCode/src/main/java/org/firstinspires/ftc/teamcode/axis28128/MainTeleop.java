@@ -29,12 +29,12 @@ public class MainTeleop extends OpMode {
     public static double TURRET_L_BOUND, TURRET_R_BOUND;
     public DcMotor shooterMotor, transferMotor, turretMotor, intake;
     public CRServo spindex;
-    public Servo bootkick, shooterServo;
+    public Servo wheelKicker, shooterServo;
     public NormalizedColorSensor colorSensor;
     public DistanceSensor distanceMeasure;
     public void transfer(boolean shouldTransfer) {
-        if(shouldTransfer) bootkick.setPosition(maxTransferServoPos);
-        else bootkick.setPosition(0);
+        if(shouldTransfer) wheelKicker.setPosition(maxTransferServoPos);
+        else wheelKicker.setPosition(0);
     }
     public void setTurretAngle(double radians, double pwr) {
         //Update turretMotor angle in radians
@@ -77,27 +77,27 @@ public class MainTeleop extends OpMode {
         spindex = hardwareMap.get(CRServo.class, "spindexerServo");
 
         //Servos responsible for other components in our systems
-        bootkick = hardwareMap.get(Servo.class, "transferServo"); //on / off
-        shooterServo = hardwareMap.get(Servo.class, "shooterServo"); //angle
-        //need more values for shooter servo, or program it so that 45 deg will be max (1 value, and 0 value means 0 deg)
+        wheelKicker = hardwareMap.get(Servo.class, "transferServo"); //                        on/off
+        shooterServo = hardwareMap.get(Servo.class, "shooterServo"); //                        angle
+        //need more values for shooter servo, or SRS program it so that 45 deg will be max (1 value max, and 0 value means 0 deg min)
 
         //Sensors used in spindexer for tracking and current index position balls inside indexer
         colorSensor = hardwareMap.get(NormalizedColorSensor.class, "colorSensor");
         distanceMeasure = hardwareMap.get(DistanceSensor.class, "distanceSensor");
 
         //motor behaviors, set servo init positions
-        bootkick.setPosition(0);
+        wheelKicker.setPosition(0);
         shooterServo.setPosition(0);
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         transferMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         turretMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         turretMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         turretMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        transferMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        transferMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER); //maybe PIDF tune wheelhuicker
 
         //pedropathing followers for teleop
         follower = Constants.createFollower(hardwareMap);
-        Pose startingPose = new Pose(80, 8, 0);
+        Pose startingPose = new Pose(80, 8, 0); //heading in radians
         follower.setStartingPose(startingPose);
         follower.update();
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
@@ -113,6 +113,7 @@ public class MainTeleop extends OpMode {
 
         //shooting sequence logic
         //should update after PIDF flywheel tuner
+        //maybe update method to gamepad1.leftBumperWasPressed()
         if(gamepad1.left_bumper) {
             if(!wasPressed) {
                 shootSeqTimer.reset();
@@ -157,5 +158,19 @@ public class MainTeleop extends OpMode {
         Pose currPose = follower.getPose();
         double rx = currPose.getX(), ry = currPose.getY(), rh = follower.getHeading();
         setTurretAngle(getTargetAngle(rx, ry,true) - rh, TURRET_PWR);
+
+        //telemetry showPos for shooter -- angle debugging
+        if(gamepad1.dpad_up) {
+            shooterServo.setPosition(shooterServo.getPosition() + 0.01);
+        } else if(gamepad1.dpad_down) {
+            shooterServo.setPosition(shooterServo.getPosition() - 0.01);
+        } else {
+            //stupid but makes code look more organised
+            shooterServo.setPosition(shooterServo.getPosition());
+        }
+        telemetry.addData("Shooter servo (angle): ", shooterServo.getPosition());
+        telemetry.update();
+
+        //TODO: add power based on distance or smth, implement logic + PIDF tune flywheel
     }
 }
