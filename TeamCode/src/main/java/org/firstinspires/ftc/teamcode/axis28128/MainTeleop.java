@@ -1,7 +1,5 @@
 package org.firstinspires.ftc.teamcode.axis28128;
-
 import static java.lang.Math.sqrt;
-
 import com.bylazar.configurables.annotations.Configurable;
 import com.bylazar.telemetry.PanelsTelemetry;
 import com.bylazar.telemetry.TelemetryManager;
@@ -15,7 +13,6 @@ import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
@@ -27,17 +24,10 @@ public class MainTeleop extends OpMode {
     public static Pose startingPose;
     public TelemetryManager telemetryM;
 
-    public static double maxTransferServoPos = 0.69;
-    public static double shooterMaxPwr = 0.8;
-    public static double shooterMinPwr = 0.4;
+    public static double maxTransferServoPos = 0.73;
     public static double shooterMaxTPS = 2000, shooterMinTPS = 1680, currentTPS = shooterMaxTPS; //ticks actually
     public static double F = 13, P = 0.7;
 
-    // === SHOOTER DISTANCE SETTINGS ===
-    public static double SHOOTER_DIST_MIN = 20;
-    public static double SHOOTER_DIST_MAX = 100;
-    public static double SHOOTER_ANGLE_MIN = 0;
-    public static double SHOOTER_ANGLE_MAX = 0;
 
     public static double TURRET_TPR = 873;
     public static double TURRET_TICKS_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
@@ -47,12 +37,14 @@ public class MainTeleop extends OpMode {
     public static double TURRET_ANGLE_SIGN = -1;
     public static double TURRET_ANGLE_OFFSET = 0;
 
+    //pretty sure these are never used
     public static double TURRET_MIN_ANGLE = 0;
     public static double TURRET_MAX_ANGLE = 0;
 
-    // === TURRET TICK LIMITS ===
+    // set limits for turret
     // The turret will only track when the calculated target is within this range.
     // If the target falls outside [-390, 500] ticks, the motor is stopped.
+    // change if you find better values
     public static int TURRET_TICK_MIN = -390;
     public static int TURRET_TICK_MAX = 500;
 
@@ -64,13 +56,13 @@ public class MainTeleop extends OpMode {
     public DistanceSensor distanceMeasure;
     private boolean isShooting = false;
 
-    // Current calculated values for telemetry
     private double currentShooterRPM = 0;
     private double currentDistance = 0;
     private double distRatioDebug = 0;
 
     @Override
     public void init() {
+        //declaring all needed variables
         shooterMotor = hardwareMap.get(DcMotorEx.class, "shooterMotor");
         transferMotor = hardwareMap.get(DcMotor.class, "transferMotor");
         turretMotor = hardwareMap.get(DcMotor.class, "turretMotor");
@@ -114,10 +106,15 @@ public class MainTeleop extends OpMode {
     public void loop() {
         follower.update();
         telemetryM.update();
-        PIDFCoefficients pidfCoefficients = new PIDFCoefficients(P, 0, 0, F);
+        PIDFCoefficients pidfCoefficients = new PIDFCoefficients(P, 0, 0, F); //PIDF with declared values
         shooterMotor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidfCoefficients);
         isShooting = (Math.abs(shooterMotor.getVelocity())  >= currentTPS);
+
         //REVISED SHOOTING LOGIC BECAUSE NOW WE HAVE ENCODER ON SHOOTER MOTOR
+        //maybe you will have to revise this but im not sure. current method ensures we are always shooting at constant RPM though it takes time to power up
+        //if they want you to shoot all when target RPM is reached (dont stop to achieve again)
+        //logic is to add a boolean value to be true if it was reached and then shoot if that boolean is true
+        // after shooting seq set back to false
         if (gamepad1.left_bumper) {
             shooterMotor.setVelocity(currentTPS);
             if (isShooting) {
@@ -136,7 +133,8 @@ public class MainTeleop extends OpMode {
         }
         if(!gamepad1.left_bumper && isShooting) spindex.setPower(0);
 
-        // === INTAKE LOGIC ===
+        // very simple intake logic
+        // no need to modify unless told by drivers
         if (gamepad1.right_bumper) {
             intake.setPower(-1);
         } else if (gamepad1.y) {
@@ -145,15 +143,18 @@ public class MainTeleop extends OpMode {
             intake.setPower(0);
         }
 
-        // === SPINDEXER LOGIC ===
+        // ez spindexer logic.
         double measuredDistance = distanceMeasure.getDistance(DistanceUnit.MM);
         if (measuredDistance <= 127 && !isShooting) {
             spindex.setPower(0.17);
         } else if (!isShooting) {
             spindex.setPower(gamepad1.left_trigger - gamepad1.right_trigger/Math.PI);
+            //dividing by PI because normally is too sensitive and I wanted this to seem more important than it is.
+            //realistically ask Dragos for ideal value
         }
 
         // === TELEOP DRIVE ===
+        // dont mess with ts, it ensures we drive mecanum with no robot-centric bullsht
         follower.setTeleOpDrive(
                 -gamepad1.left_stick_y,
                 -gamepad1.left_stick_x,
@@ -162,40 +163,20 @@ public class MainTeleop extends OpMode {
         );
 
         // === TURRET LOGIC ===
+        //basically the angleToGoal is all you need to change as the rest of the logic needed is taken care of.
+
         Pose currPose = follower.getPose();
         double rx = currPose.getX();
         double ry = currPose.getY();
         double robotHeading = follower.getHeading();
-        double angleToGoal = Math.atan2(133 - ry, 133 - rx);
+        double angleToGoal = Math.atan2(144 - ry, 144 - rx); //works for red. need to change v1 to rx - 144 if we want to track blue (I think, we haven't tested it yet)
         double turretTarget = angleToGoal * TURRET_ANGLE_SIGN + TURRET_ANGLE_OFFSET + robotHeading;
         setTurretAngle(turretTarget, TURRET_PWR);
 
-        // === SHOOTER RPM BASED ON DISTANCE ===
-        currentDistance = getDistance(rx, ry);
-        double clampedDist = currentDistance;
-        if (clampedDist < SHOOTER_DIST_MIN) clampedDist = SHOOTER_DIST_MIN;
-        if (clampedDist > SHOOTER_DIST_MAX) clampedDist = SHOOTER_DIST_MAX;
-        double range = SHOOTER_DIST_MAX - SHOOTER_DIST_MIN;
-        if (range > 0) {
-            distRatioDebug = (clampedDist - SHOOTER_DIST_MIN) / range;
-        } else {
-            distRatioDebug = 0;
-        }
-
-        currentShooterRPM = shooterMinPwr + distRatioDebug * (shooterMaxPwr - shooterMinPwr);
-
-        double targetServoAngle = SHOOTER_ANGLE_MIN + distRatioDebug * (SHOOTER_ANGLE_MAX - SHOOTER_ANGLE_MIN);
-
-        // === TELEMETRY ===
-        int currentTurretTicks = turretMotor.getCurrentPosition();
-        boolean turretInRange = (currentTurretTicks >= TURRET_TICK_MIN && currentTurretTicks <= TURRET_TICK_MAX);
-
         telemetry.addData("=== SHOOTER ===", "");
         telemetry.addData("Distance to Goal", "%.1f units", currentDistance);
-        telemetry.addData("Clamped Dist", "%.1f", clampedDist);
         telemetry.addData("Dist Ratio (0-1)", "%.2f", distRatioDebug);
         telemetry.addData("Shooter RPM", "%.3f", currentShooterRPM);
-        telemetry.addData("Servo Angle", "%.2f", targetServoAngle);
         telemetry.addData("Shooting Active", "%s", isShooting);
         telemetry.addData("=== TURRET ===", "");
         telemetry.addData("TURRET_ANGLE_SIGN", "%.0f", TURRET_ANGLE_SIGN);
@@ -204,38 +185,37 @@ public class MainTeleop extends OpMode {
         telemetry.addData("Robot Heading", "%.1f deg", Math.toDegrees(robotHeading));
         telemetry.addData("Turret Target", "%.1f deg", Math.toDegrees(turretTarget));
         telemetry.addData("Turret Current", "%.1f deg", Math.toDegrees(getTurretAngle()));
-        telemetry.addData("Turret Tracking", turretInRange ? "ACTIVE" : "OUT OF RANGE - STOPPED");
         telemetry.addData("=== POSITION ===", "");
         telemetry.addData("Robot", "(%.1f, %.1f)", rx, ry);
-        telemetry.addData("Turret Ticks", currentTurretTicks);
         telemetry.addData("Turret Tick Limits", "[%d, %d]", TURRET_TICK_MIN, TURRET_TICK_MAX);
         telemetry.addData("Turret Target Pos", turretMotor.getTargetPosition());
         telemetry.addData("=== SHOOTER PID COEFFICIENTS ===", "");
         telemetry.addData("P Value: ", P);
         telemetry.addData("F Value: ", F);
 
+        //close and far modes for shooting (changes target RPM and feedforward value)
         if (gamepad1.xWasPressed()) {
             if (currentTPS == shooterMinTPS) {
                 currentTPS = shooterMaxTPS;
+                F = 13;
             } else {
                 currentTPS = shooterMinTPS;
+                F = 12.5;
             }
         }
-
+        //changes position of shooterServo (angle)
         if (gamepad1.dpad_up) {
             shooterServo.setPosition(shooterServo.getPosition() + 0.05);
         } else if (gamepad1.dpad_down) {
             shooterServo.setPosition(shooterServo.getPosition() - 0.05);
         }
-
         double curVelocity = shooterMotor.getVelocity();
-
         telemetry.addData("Current Velocity: ", curVelocity);
         telemetry.addData("Target Velocity: ", currentTPS);
         telemetry.update();
     }
 
-    // === HELPER METHODS ===
+    // methods
 
     public void transfer(boolean shouldTransfer) {
         if (shouldTransfer) bootkick.setPosition(maxTransferServoPos);
@@ -290,8 +270,8 @@ public class MainTeleop extends OpMode {
 
 
     public double getDistance(double rx, double ry) {
-        double dx = 133 - rx;
-        double dy = 133 - ry;
+        double dx = 144 - rx;
+        double dy = 144 - ry;
         return sqrt(dx * dx + dy * dy);
     }
     public double getTurretAngle() {
