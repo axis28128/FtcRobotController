@@ -25,8 +25,9 @@ public class MainTeleop extends OpMode {
     public TelemetryManager telemetryM;
 
     public static double maxTransferServoPos = 0.73;
-    public static double shooterMaxTPS = 2000, shooterMinTPS = 1680, currentTPS = shooterMaxTPS; //ticks actually
+    public static double shooterMaxTPS = 1800, shooterMinTPS = 1300, currentTPS = shooterMaxTPS;
     public static double F = 13, P = 0.7;
+    public static double F_LOW = 12.5, F_HIGH = 13, P_LOW, P_HIGH;
 
 
     public static double TURRET_TPR = 873;
@@ -197,10 +198,10 @@ public class MainTeleop extends OpMode {
         if (gamepad1.xWasPressed()) {
             if (currentTPS == shooterMinTPS) {
                 currentTPS = shooterMaxTPS;
-                F = 13;
+                F = F_HIGH;
             } else {
                 currentTPS = shooterMinTPS;
-                F = 12.5;
+                F = F_LOW;
             }
         }
         //changes position of shooterServo (angle)
