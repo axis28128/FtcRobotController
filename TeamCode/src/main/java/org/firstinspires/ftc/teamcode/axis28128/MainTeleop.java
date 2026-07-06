@@ -33,6 +33,15 @@ public class MainTeleop extends OpMode {
     public static Pose startingPose;
     public TelemetryManager telemetryM;
 
+    // === DRIVE FEEL TUNING (live-tunable in Panels) ===
+    // How much of the wheel budget the turn stick can claim. Lower = translation
+    // stays faster while turning, at the cost of a slower max spin.
+    public static double DRIVE_TURN_SCALE = 0.6;
+    // 1 = fully composed (even split, no clipping, slowest), 0 = raw sticks
+    // (rotation starves translation again). In between, the overflow is trimmed
+    // by Pedro — and it trims translation, since heading has priority.
+    public static double DRIVE_COMPOSE = 0.75;
+
     public static double shooterMaxTPS = 6200, shooterMinTPS = 2000, currentTPS = shooterMaxTPS;
     public static double TURRET_TPR = 873;
     public static double TURRET_TICKS_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
@@ -203,17 +212,16 @@ public class MainTeleop extends OpMode {
         // === DRIVE ===
         double forward = -gamepad1.left_stick_y;
         double lateral = -gamepad1.left_stick_x;
-        double turn    = -gamepad1.right_stick_x;
+        double turn    = -gamepad1.right_stick_x * DRIVE_TURN_SCALE;
 
-        // Pedro's drive scaler gives the heading vector priority over translation,
-        // so an unscaled full turn stick leaves no wheel headroom and translation
-        // gets clipped to zero. Normalizing the combined demand to <= 1 keeps both
-        // components inside wheel capacity so they compose instead.
+        // Wheel power caps at 1.0, so translation + rotation can't both be full;
+        // DRIVE_COMPOSE picks how the overflow is handled (see field comments).
         double denom = Math.abs(forward) + Math.abs(lateral) + Math.abs(turn);
         if (denom > 1) {
-            forward /= denom;
-            lateral /= denom;
-            turn    /= denom;
+            double scale = 1 + DRIVE_COMPOSE * (denom - 1);
+            forward /= scale;
+            lateral /= scale;
+            turn    /= scale;
         }
 
         follower.setTeleOpDrive(forward, lateral, turn, false);
