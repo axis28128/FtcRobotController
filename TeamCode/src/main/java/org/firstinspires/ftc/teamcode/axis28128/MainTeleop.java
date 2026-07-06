@@ -34,10 +34,10 @@ public class MainTeleop extends OpMode {
     public TelemetryManager telemetryM;
 
     // === DRIVE FEEL TUNING (live-tunable in Panels) ===
-    // Rotation has priority (Pedro's native behavior) but its wheel-budget claim
-    // is capped here, so translation is always guaranteed at least the remainder
-    // (1 - DRIVE_TURN_SCALE). 1.0 = rotation can fully starve translation again.
-    public static double DRIVE_TURN_SCALE = 0.75;
+    // Translation gets priority: rotation is capped to the wheel budget left over
+    // after translation's demand, but never below this floor — so steering stays
+    // responsive even at full drive speed. Raise for stronger turning while moving.
+    public static double DRIVE_MIN_TURN = 0.3;
 
     public static double shooterMaxTPS = 6200, shooterMinTPS = 2000, currentTPS = shooterMaxTPS;
     public static double TURRET_TPR = 873;
@@ -207,15 +207,18 @@ public class MainTeleop extends OpMode {
         spindexerServo.setPosition(spindexerPos[spinidx]);
 
         // === DRIVE ===
-        // No input normalization: sticks pass through at full power. Pedro grants
-        // the (capped) rotation request first and translation the full remainder,
-        // so the wheels always saturate instead of being scaled down.
-        follower.setTeleOpDrive(
-                -gamepad1.left_stick_y,
-                -gamepad1.left_stick_x,
-                -gamepad1.right_stick_x * DRIVE_TURN_SCALE,
-                false
-        );
+        // Translation-priority mixing: sticks pass through at full power, and the
+        // turn request is capped to the wheel budget translation leaves unused
+        // (Pedro grants heading first, so capping it hands priority to translation).
+        // The DRIVE_MIN_TURN floor keeps steering alive at full drive speed.
+        double forward = -gamepad1.left_stick_y;
+        double lateral = -gamepad1.left_stick_x;
+        double turn    = -gamepad1.right_stick_x;
+
+        double turnHeadroom = Math.max(DRIVE_MIN_TURN, 1 - (Math.abs(forward) + Math.abs(lateral)));
+        turn = Math.max(-turnHeadroom, Math.min(turnHeadroom, turn));
+
+        follower.setTeleOpDrive(forward, lateral, turn, false);
 
         // === TURRET ===
         Pose   currPose    = follower.getPose();
