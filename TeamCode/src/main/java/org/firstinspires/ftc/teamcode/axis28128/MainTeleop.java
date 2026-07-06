@@ -201,12 +201,22 @@ public class MainTeleop extends OpMode {
         spindexerServo.setPosition(spindexerPos[spinidx]);
 
         // === DRIVE ===
-        follower.setTeleOpDrive(
-                -gamepad1.left_stick_y,
-                -gamepad1.left_stick_x,
-                -gamepad1.right_stick_x,
-                false
-        );
+        double forward = -gamepad1.left_stick_y;
+        double lateral = -gamepad1.left_stick_x;
+        double turn    = -gamepad1.right_stick_x;
+
+        // Pedro's drive scaler gives the heading vector priority over translation,
+        // so an unscaled full turn stick leaves no wheel headroom and translation
+        // gets clipped to zero. Normalizing the combined demand to <= 1 keeps both
+        // components inside wheel capacity so they compose instead.
+        double denom = Math.abs(forward) + Math.abs(lateral) + Math.abs(turn);
+        if (denom > 1) {
+            forward /= denom;
+            lateral /= denom;
+            turn    /= denom;
+        }
+
+        follower.setTeleOpDrive(forward, lateral, turn, false);
 
         // === TURRET ===
         Pose   currPose    = follower.getPose();
