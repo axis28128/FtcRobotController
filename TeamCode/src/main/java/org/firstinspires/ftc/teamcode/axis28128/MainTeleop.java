@@ -34,13 +34,10 @@ public class MainTeleop extends OpMode {
     public TelemetryManager telemetryM;
 
     // === DRIVE FEEL TUNING (live-tunable in Panels) ===
-    // How much of the wheel budget the turn stick can claim. Lower = translation
-    // stays faster while turning, at the cost of a slower max spin.
-    public static double DRIVE_TURN_SCALE = 0.6;
-    // 1 = fully composed (even split, no clipping, slowest), 0 = raw sticks
-    // (rotation starves translation again). In between, the overflow is trimmed
-    // by Pedro — and it trims translation, since heading has priority.
-    public static double DRIVE_COMPOSE = 0.75;
+    // Rotation has priority (Pedro's native behavior) but its wheel-budget claim
+    // is capped here, so translation is always guaranteed at least the remainder
+    // (1 - DRIVE_TURN_SCALE). 1.0 = rotation can fully starve translation again.
+    public static double DRIVE_TURN_SCALE = 0.75;
 
     public static double shooterMaxTPS = 6200, shooterMinTPS = 2000, currentTPS = shooterMaxTPS;
     public static double TURRET_TPR = 873;
@@ -210,21 +207,15 @@ public class MainTeleop extends OpMode {
         spindexerServo.setPosition(spindexerPos[spinidx]);
 
         // === DRIVE ===
-        double forward = -gamepad1.left_stick_y;
-        double lateral = -gamepad1.left_stick_x;
-        double turn    = -gamepad1.right_stick_x * DRIVE_TURN_SCALE;
-
-        // Wheel power caps at 1.0, so translation + rotation can't both be full;
-        // DRIVE_COMPOSE picks how the overflow is handled (see field comments).
-        double denom = Math.abs(forward) + Math.abs(lateral) + Math.abs(turn);
-        if (denom > 1) {
-            double scale = 1 + DRIVE_COMPOSE * (denom - 1);
-            forward /= scale;
-            lateral /= scale;
-            turn    /= scale;
-        }
-
-        follower.setTeleOpDrive(forward, lateral, turn, false);
+        // No input normalization: sticks pass through at full power. Pedro grants
+        // the (capped) rotation request first and translation the full remainder,
+        // so the wheels always saturate instead of being scaled down.
+        follower.setTeleOpDrive(
+                -gamepad1.left_stick_y,
+                -gamepad1.left_stick_x,
+                -gamepad1.right_stick_x * DRIVE_TURN_SCALE,
+                false
+        );
 
         // === TURRET ===
         Pose   currPose    = follower.getPose();
