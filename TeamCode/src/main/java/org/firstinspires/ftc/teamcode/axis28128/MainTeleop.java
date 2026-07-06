@@ -37,7 +37,7 @@ public class MainTeleop extends OpMode {
     // Translation gets priority: rotation is capped to the wheel budget left over
     // after translation's demand, but never below this floor — so steering stays
     // responsive even at full drive speed. Raise for stronger turning while moving.
-    public static double DRIVE_MIN_TURN = 0.3;
+    public static double DRIVE_MIN_TURN = 0.2;
 
     public static double shooterMaxTPS = 6200, shooterMinTPS = 2000, currentTPS = shooterMaxTPS;
     public static double TURRET_TPR = 873;
