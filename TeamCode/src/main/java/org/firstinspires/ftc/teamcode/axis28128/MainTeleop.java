@@ -147,7 +147,7 @@ public class MainTeleop extends OpMode {
             shooterMotor.setPower(pwr);
             transferMotor.setPower(0.2);
             double angleToGoal  = Math.atan2(144 - follower.getPose().getY(), 144 - follower.getPose().getX());
-            double turretTarget = angleToGoal * TURRET_ANGLE_SIGN + TURRET_ANGLE_OFFSET - follower.getPose().getHeading();
+            double turretTarget = angleToGoal - follower.getPose().getHeading();
             setTurretAngle(turretTarget, TURRET_PWR);
             transfer(true);
             if (isShooting) {
