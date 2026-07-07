@@ -41,7 +41,7 @@ public class MainTeleop extends OpMode {
 
     public static double shooterMaxTPS = 6200, shooterMinTPS = 2000, currentTPS = shooterMaxTPS;
     public static double TURRET_TPR = 873;
-    public static double TURRET_TICKS_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
+    public static double TURRET_TICkSClose_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
     public static double TURRET_PWR = 0.3;
 
     public static double TURRET_ANGLE_SIGN = -1;
@@ -53,9 +53,9 @@ public class MainTeleop extends OpMode {
     public static int TURRET_TICK_MIN = -390;
     public static int TURRET_TICK_MAX = 500;
     // === SHOOTER PIDF TUNING ===
-    public static double kV = 0.00009;  // volts (power) per RPM — main feedforward term
-    public static double kS = 0.05;     // static friction/minimum power to overcome stiction
-    public static double kP = 0.0001;   // proportional correction for RPM error
+    public static double kVClose = 0.00009;  // volts (power) per RPM — main feedforward term
+    public static double kSClose = 0.05;     // static friction/minimum power to overcome stiction
+    public static double kPClose = 0.0001;   // proportional correction for RPM error
 
     public DcMotor transferMotor, turretMotor, intake;
     public DcMotorEx shooterMotor;
@@ -82,7 +82,7 @@ public class MainTeleop extends OpMode {
     public int spinidx = 0;
     public boolean ballWasDetected = false;
 
-    // Tracks whether PIDF needs to be re-applied (only on change, not every frame).
+    // TrackSClose whether PIDF needs to be re-applied (only on change, not every frame).
 
     @Override
     public void init() {
@@ -131,9 +131,9 @@ public class MainTeleop extends OpMode {
         double gearRatio = (double) 10 / 16;
         double RPM = (((-shooterMotor.getVelocity()) / 28) * 60) / gearRatio;
 
-        double ff = kS + (kV * currentTPS);
+        double ff = kSClose + (kVClose * currentTPS);
         double error = currentTPS - RPM;
-        double feedback = kP * error;
+        double feedback = kPClose * error;
         double pwr = Math.max(0, ff + feedback);
 
         // === DISTANCE SENSOR (timed) ===
@@ -196,9 +196,10 @@ public class MainTeleop extends OpMode {
 
         if (ballNearNow && !ballWasDetected && !gamepad1.left_bumper && spinidx < 2) {
             spinidx++;
-        } else if(ballNearNow && !ballWasDetected && !gamepad1.left_bumper && spinidx == 2) {
-            spinidx = 3;
         }
+//        } else if(ballNearNow && !ballWasDetected && !gamepad1.left_bumper && spinidx == 2) {
+//            spinidx = 3;
+//        }
         ballWasDetected = ballNearNow;
         // BUG FIX #3: Clamp spinidx properly — wrap at top, floor at 0.
         if (spinidx > 6) spinidx = 0;
@@ -207,7 +208,7 @@ public class MainTeleop extends OpMode {
         spindexerServo.setPosition(spindexerPos[spinidx]);
 
         // === DRIVE ===
-        // Translation-priority mixing: sticks pass through at full power, and the
+        // Translation-priority mixing: stickSClose pass through at full power, and the
         // turn request is capped to the wheel budget translation leaves unused
         // (Pedro grants heading first, so capping it hands priority to translation).
         // The DRIVE_MIN_TURN floor keeps steering alive at full drive speed.
@@ -307,15 +308,15 @@ public class MainTeleop extends OpMode {
         }
 
         double newTarget  = currentRadians + delta;
-        int    targetTicks = (int) (newTarget * TURRET_TICKS_PER_RADIAN);
-        if (targetTicks < -490) targetTicks += (int) TURRET_TPR;
+        int    targetTickSClose = (int) (newTarget * TURRET_TICkSClose_PER_RADIAN);
+        if (targetTickSClose < -490) targetTickSClose += (int) TURRET_TPR;
 
-        if (targetTicks < TURRET_TICK_MIN || targetTicks > TURRET_TICK_MAX) {
+        if (targetTickSClose < TURRET_TICK_MIN || targetTickSClose > TURRET_TICK_MAX) {
             turretMotor.setPower(0);
             return;
         }
 
-        turretMotor.setTargetPosition(targetTicks);
+        turretMotor.setTargetPosition(targetTickSClose);
         turretMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         turretMotor.setPower(pwr);
     }
@@ -327,6 +328,6 @@ public class MainTeleop extends OpMode {
     }
 
     public double getTurretAngle() {
-        return turretMotor.getCurrentPosition() / TURRET_TICKS_PER_RADIAN;
+        return turretMotor.getCurrentPosition() / TURRET_TICkSClose_PER_RADIAN;
     }
 }
