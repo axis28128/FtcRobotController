@@ -26,7 +26,7 @@ public class MainTeleop extends OpMode {
     // Add fields
     public static double BALL_DETECT_THRESHOLD = 65; // between ball (~40) and gap (~100)
     public static int BALL_DETECT_CONSECUTIVE = 3;    // readings needed to confirm
-    private int closeReadingStreak = 0;
+    private int FarReadingStreak = 0;
     public static double SHOOT_ADVANCE_MS = 450; // tune this — time between each ball feed
     private double nextShootAdvanceTime = 0;
     private Follower follower;
@@ -41,7 +41,7 @@ public class MainTeleop extends OpMode {
 
     public static double shooterMaxTPS = 6200, shooterMinTPS = 2000, currentTPS = shooterMaxTPS;
     public static double TURRET_TPR = 873;
-    public static double TURRET_TICkSClose_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
+    public static double TURRET_TICkSFar_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
     public static double TURRET_PWR = 0.3;
 
     public static double TURRET_ANGLE_SIGN = -1;
@@ -53,9 +53,10 @@ public class MainTeleop extends OpMode {
     public static int TURRET_TICK_MIN = -390;
     public static int TURRET_TICK_MAX = 500;
     // === SHOOTER PIDF TUNING ===
-    public static double kVClose = 0.00009;  // volts (power) per RPM — main feedforward term
-    public static double kSClose = 0.05;     // static friction/minimum power to overcome stiction
-    public static double kPClose = 0.0001;   // proportional correction for RPM error
+    public static double kVFar = 0.000269, kVClose = 0.000278;  // volts (power) per RPM — main feedforward term
+    public static double kSFar = 0.043;     // static friction/minimum power to overcome stiction
+    public static double kPFar = 0.011;   // proportional correction for RPM error 3200
+    //just need to change goalRPM values between 3200 and 2700 for close and far shooting, also kV value for both. also write correct equation for the PIDF loop.
 
     public DcMotor transferMotor, turretMotor, intake;
     public DcMotorEx shooterMotor;
@@ -82,7 +83,7 @@ public class MainTeleop extends OpMode {
     public int spinidx = 0;
     public boolean ballWasDetected = false;
 
-    // TrackSClose whether PIDF needs to be re-applied (only on change, not every frame).
+    // TrackSFar whether PIDF needs to be re-applied (only on change, not every frame).
 
     @Override
     public void init() {
@@ -131,9 +132,9 @@ public class MainTeleop extends OpMode {
         double gearRatio = (double) 10 / 16;
         double RPM = (((-shooterMotor.getVelocity()) / 28) * 60) / gearRatio;
 
-        double ff = kSClose + (kVClose * currentTPS);
+        double ff = kSFar + (kVFar * currentTPS);
         double error = currentTPS - RPM;
-        double feedback = kPClose * error;
+        double feedback = kPFar * error;
         double pwr = Math.max(0, ff + feedback);
 
         // === DISTANCE SENSOR (timed) ===
@@ -184,15 +185,15 @@ public class MainTeleop extends OpMode {
         if (gamepad1.dpadRightWasPressed())      spinidx++;
         else if (gamepad1.dpadLeftWasPressed())  spinidx--;
 
-        boolean readingIsClose = measuredDistance <= BALL_DETECT_THRESHOLD;
+        boolean readingIsFar = measuredDistance <= BALL_DETECT_THRESHOLD;
 
-        if (readingIsClose) {
-            closeReadingStreak++;
+        if (readingIsFar) {
+            FarReadingStreak++;
         } else {
-            closeReadingStreak = 0;
+            FarReadingStreak = 0;
         }
 
-        boolean ballNearNow = closeReadingStreak >= BALL_DETECT_CONSECUTIVE;
+        boolean ballNearNow = FarReadingStreak >= BALL_DETECT_CONSECUTIVE;
 
         if (ballNearNow && !ballWasDetected && !gamepad1.left_bumper && spinidx < 2) {
             spinidx++;
@@ -208,7 +209,7 @@ public class MainTeleop extends OpMode {
         spindexerServo.setPosition(spindexerPos[spinidx]);
 
         // === DRIVE ===
-        // Translation-priority mixing: stickSClose pass through at full power, and the
+        // Translation-priority mixing: stickSFar pass through at full power, and the
         // turn request is capped to the wheel budget translation leaves unused
         // (Pedro grants heading first, so capping it hands priority to translation).
         // The DRIVE_MIN_TURN floor keeps steering alive at full drive speed.
@@ -232,7 +233,7 @@ public class MainTeleop extends OpMode {
         // instead of adding it. Adding heading gave a nonsensical double-rotation.
 
 
-        // === CLOSE / FAR SPEED TOGGLE ===
+        // === Far / FAR SPEED TOGGLE ===
         if (gamepad1.xWasPressed()) {
             if (currentTPS == shooterMinTPS) {
                 currentTPS = shooterMaxTPS;
@@ -308,15 +309,15 @@ public class MainTeleop extends OpMode {
         }
 
         double newTarget  = currentRadians + delta;
-        int    targetTickSClose = (int) (newTarget * TURRET_TICkSClose_PER_RADIAN);
-        if (targetTickSClose < -490) targetTickSClose += (int) TURRET_TPR;
+        int    targetTickSFar = (int) (newTarget * TURRET_TICkSFar_PER_RADIAN);
+        if (targetTickSFar < -490) targetTickSFar += (int) TURRET_TPR;
 
-        if (targetTickSClose < TURRET_TICK_MIN || targetTickSClose > TURRET_TICK_MAX) {
+        if (targetTickSFar < TURRET_TICK_MIN || targetTickSFar > TURRET_TICK_MAX) {
             turretMotor.setPower(0);
             return;
         }
 
-        turretMotor.setTargetPosition(targetTickSClose);
+        turretMotor.setTargetPosition(targetTickSFar);
         turretMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         turretMotor.setPower(pwr);
     }
@@ -328,6 +329,6 @@ public class MainTeleop extends OpMode {
     }
 
     public double getTurretAngle() {
-        return turretMotor.getCurrentPosition() / TURRET_TICkSClose_PER_RADIAN;
+        return turretMotor.getCurrentPosition() / TURRET_TICkSFar_PER_RADIAN;
     }
 }
