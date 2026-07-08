@@ -81,7 +81,7 @@ public class MainTeleop extends OpMode {
     // ftcPose.z (image vertical), not ftcPose.x. See aimTurretFromCamera() for the math.
     public static String  CAMERA_NAME         = "Webcam 1"; // must match the robot config name
     public static int     RED_GOAL_TAG_ID     = 24;         // Decode "RedTarget"
-    public static double  CAMERA_OFFSET_MM    = 82.9;       // camera is this far RIGHT of flywheel center
+    public static double  CAMERA_OFFSET_MM    = 87.25;       // camera is this far RIGHT of flywheel center
     public static double  CAMERA_AIM_GAIN     = 1.0;        // scales per-loop turret correction; lower (~0.6) if it hunts
     public static boolean USE_MANUAL_EXPOSURE = true;       // reduces motion blur while the turret moves
     public static int     CAMERA_EXPOSURE_MS  = 6;
