@@ -386,8 +386,8 @@ public class MainTeleop extends OpMode {
     }
 
     public double getDistance(double rx, double ry) {
-        double dx = 140 - rx;
-        double dy = 140 - ry;
+        double dx = 144 - rx;
+        double dy = 144 - ry;
         return sqrt(dx * dx + dy * dy);
     }
 
