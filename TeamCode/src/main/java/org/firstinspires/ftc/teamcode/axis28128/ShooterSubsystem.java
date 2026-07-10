@@ -54,7 +54,8 @@ public class ShooterSubsystem {
     public static final double GOAL_X = 140, GOAL_Y = 140;
 
     // === SPINDEXER ===
-    public double[] spindexerPos = {0.24, 0.48, 0.72, 0.53, 0.27, 0.01, 1};
+    public double[] spindexerPos = {0.31, 0.55, 0.8, 0.62, 0.36, 0.15};
+
     public int spinidx = 0;
 
     // === STATE ===

@@ -12,13 +12,23 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
-import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import android.util.Size;
+
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
+import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.GainControl;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
+import org.firstinspires.ftc.vision.VisionPortal;
+import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @TeleOp(name = "Main Teleop Mode")
 @Configurable
@@ -29,6 +39,7 @@ public class MainTeleop extends OpMode {
     private int FarReadingStreak = 0;
     public static double SHOOT_ADVANCE_MS = 450; // tune this — time between each ball feed
     private double nextShootAdvanceTime = 0;
+    public static double SHOOTER_POS_FAR = 0, SHOOTER_POS_CLOSE = 1;
     private Follower follower;
     public static Pose startingPose;
     public TelemetryManager telemetryM;
@@ -39,12 +50,14 @@ public class MainTeleop extends OpMode {
     // responsive even at full drive speed. Raise for stronger turning while moving.
     public static double DRIVE_MIN_TURN = 0.2;
 
-    public static double shooterMaxTPS = 6200, shooterMinTPS = 2000, currentTPS = shooterMaxTPS;
+    // NEW:
+    public static double GOAL_RPM_FAR = 3200, GOAL_RPM_CLOSE = 2700, currentTPS = GOAL_RPM_FAR;
+    private boolean shootingFar = true; // tracks which preset is active, so we know which kV to use
     public static double TURRET_TPR = 873;
     public static double TURRET_TICkSFar_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
     public static double TURRET_PWR = 0.3;
 
-    public static double TURRET_ANGLE_SIGN = -1;
+    public static double TURRET_ANGLE_SIGN = 1;
     public static double TURRET_ANGLE_OFFSET = ( Math.PI / 6 ) + ( Math.PI / 18) + (Math.PI / 36);
 
     public static double TURRET_MIN_ANGLE = 0;
@@ -64,6 +77,26 @@ public class MainTeleop extends OpMode {
     public NormalizedColorSensor colorSensor;
     public DistanceSensor spindexDistance;
 
+    // === VISION: turret AprilTag tracking (Decode RED goal, tag ID 24 "RedTarget") ===
+    // The C920 is mounted on the turret, rolled 90° (sideways), CAMERA_OFFSET_MM to the
+    // RIGHT of the flywheel center. Because of the 90° roll, a tag to the turret's right
+    // appears toward the BOTTOM of the image, so the horizontal aim error lives in
+    // ftcPose.z (image vertical), not ftcPose.x. See aimTurretFromCamera() for the math.
+    public static String  CAMERA_NAME         = "Webcam 1"; // must match the robot config name
+    public static int     RED_GOAL_TAG_ID     = 24;         // Decode "RedTarget"
+    public static double  CAMERA_OFFSET_MM    = 87.25;       // camera is this far RIGHT of flywheel center
+    public static double  CAMERA_AIM_GAIN     = 1.0;        // scales per-loop turret correction; lower (~0.6) if it hunts
+    public static boolean USE_MANUAL_EXPOSURE = true;       // reduces motion blur while the turret moves
+    public static int     CAMERA_EXPOSURE_MS  = 6;
+    public static int     CAMERA_GAIN         = 250;
+
+    private VisionPortal      visionPortal;
+    private AprilTagProcessor aprilTag;
+    private boolean cameraExposureSet = false;
+    private String  cameraInitError   = null;
+    private boolean turretUsingCamera = false; // telemetry: camera vs odometry aim
+    private double  lastAimBearingDeg = 0;     // telemetry: flywheel->tag horizontal angle
+
     private boolean isShooting = false;
     private static ElapsedTime currentTimer = new ElapsedTime();
 
@@ -71,7 +104,7 @@ public class MainTeleop extends OpMode {
     private double currentDistance = 0;
     private double distRatioDebug = 0;
 
-    public double[] spindexerPos = {0.24, 0.48, 0.72, 0.53, 0.27, 0};
+    public double[] spindexerPos = {0.31, 0.55, 0.8, 0.62, 0.36, 0.14};
 
     // BUG FIX #1: lastMeasuredDistance is now only updated inside the timed block,
     // not again at the bottom of loop(). This ensures the ball-detect comparison
@@ -115,6 +148,16 @@ public class MainTeleop extends OpMode {
         follower.setStartingPose(startingPose);
         follower.update();
 
+        // Start the turret camera. If the webcam is missing/misconfigured we swallow the
+        // error and leave aprilTag null so the turret simply falls back to odometry aiming.
+        try {
+            initAprilTag();
+        } catch (Exception e) {
+            aprilTag = null;
+            visionPortal = null;
+            cameraInitError = e.getMessage();
+        }
+
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
         currentTimer.reset();
         timerTarget += deltaDistanceSensorReadingsMillis;
@@ -129,10 +172,23 @@ public class MainTeleop extends OpMode {
     public void loop() {
         follower.update();
         telemetryM.update();
-        double gearRatio = (double) 10 / 16;
-        double RPM = (((-shooterMotor.getVelocity()) / 28) * 60) / gearRatio;
 
-        double ff = kSFar + (kVFar * currentTPS);
+        // Once the camera is streaming, pin exposure low to limit motion blur (the turret
+        // moves while tracking). Spread across loops so nothing blocks the control cycle.
+        if (USE_MANUAL_EXPOSURE && !cameraExposureSet && visionPortal != null
+                && visionPortal.getCameraState() == VisionPortal.CameraState.STREAMING) {
+            setManualExposure(CAMERA_EXPOSURE_MS, CAMERA_GAIN);
+        }
+
+        // Does the camera currently see the RED goal tag? null -> fall back to odometry.
+        AprilTagDetection goalTag = getRedGoalDetection();
+
+        double gearRatio = (double) 10 / 16;
+        double RPM = (((-shooterMotor.getVelocity()) / 28) * 60) * gearRatio;
+
+        // NEW:
+        double kV = shootingFar ? kVFar : kVClose;   // feedforward term matches the active goal RPM
+        double ff = kSFar + (kV * currentTPS);
         double error = currentTPS - RPM;
         double feedback = kPFar * error;
         double pwr = Math.max(0, ff + feedback);
@@ -147,9 +203,13 @@ public class MainTeleop extends OpMode {
         if (gamepad1.left_bumper) {
             shooterMotor.setPower(pwr);
             transferMotor.setPower(0.2);
-            double angleToGoal  = Math.atan2(144 - follower.getPose().getY(), 144 - follower.getPose().getX());
-            double turretTarget = angleToGoal - follower.getPose().getHeading();
-            setTurretAngle(turretTarget, TURRET_PWR);
+            // Camera-first turret aiming: use the webcam when it sees the RED goal tag,
+            // otherwise fall back to the odometry-based aim.
+            if (goalTag != null) {
+                aimTurretFromCamera(goalTag);
+            } else {
+                aimTurretFromOdometry();
+            }
             transfer(true);
             if (isShooting) {
                 if (currentTimer.milliseconds() >= nextShootAdvanceTime && spinidx < 5) {
@@ -174,7 +234,7 @@ public class MainTeleop extends OpMode {
         // BUG FIX #7: Intake check now happens AFTER spinidx may have been set to 3
         // above, so the "don't intake while shooting" gate is evaluated correctly.
         if (gamepad1.right_bumper && spinidx != 3) {
-            intake.setPower(-0.8);
+            intake.setPower(-1);
         } else if (gamepad1.y) {
             intake.setPower(0.8);
         } else {
@@ -198,14 +258,9 @@ public class MainTeleop extends OpMode {
         if (ballNearNow && !ballWasDetected && !gamepad1.left_bumper && spinidx < 2) {
             spinidx++;
         }
-//        } else if(ballNearNow && !ballWasDetected && !gamepad1.left_bumper && spinidx == 2) {
-//            spinidx = 3;
-//        }
         ballWasDetected = ballNearNow;
-        // BUG FIX #3: Clamp spinidx properly — wrap at top, floor at 0.
         if (spinidx > 6) spinidx = 0;
         if (spinidx < 0) spinidx = 0;
-
         spindexerServo.setPosition(spindexerPos[spinidx]);
 
         // === DRIVE ===
@@ -227,19 +282,10 @@ public class MainTeleop extends OpMode {
         double rx          = currPose.getX();
         double ry          = currPose.getY();
         double robotHeading = follower.getHeading();
-
-        // BUG FIX #4: angleToGoal is field-relative. To get the angle the turret
-        // (which is mounted on the robot) needs to point, subtract the robot heading
-        // instead of adding it. Adding heading gave a nonsensical double-rotation.
-
-
-        // === Far / FAR SPEED TOGGLE ===
         if (gamepad1.xWasPressed()) {
-            if (currentTPS == shooterMinTPS) {
-                currentTPS = shooterMaxTPS;
-            } else {
-                currentTPS = shooterMinTPS;
-            }
+            shootingFar = !shootingFar;
+            currentTPS = shootingFar ? GOAL_RPM_FAR : GOAL_RPM_CLOSE;
+            shooterServo.setPosition(shootingFar ? SHOOTER_POS_FAR : SHOOTER_POS_CLOSE);
         }
 
         // === SHOOTER SERVO ANGLE ===
@@ -249,8 +295,41 @@ public class MainTeleop extends OpMode {
             shooterServo.setPosition(shooterServo.getPosition() - 0.05);
         }
 
-        // === TELEMETRY ===
+        // === ALL TELEMETRY ===
         double curVelocity = RPM;
+        telemetryM.addData("Shot Preset", shootingFar ? "FAR (3200)" : "CLOSE (2700)");
+        telemetryM.addData("Active kV", kV);
+        telemetryM.addData("Meas Dist",         measuredDistance);
+        telemetryM.addData("Last Meas Dist",     lastMeasuredDistance);
+        telemetryM.addData("spinidx",            spinidx);
+        telemetryM.addData("=== SHOOTER ===",   "");
+        telemetryM.addData("Distance to Goal",  currentDistance);
+        telemetryM.addData("Dist Ratio (0-1)",  distRatioDebug);
+        telemetryM.addData("Shooter RPM",       currentShooterRPM);
+        telemetryM.addData("Shooting Active",   isShooting);
+        telemetryM.addData("Current Velocity",  curVelocity);
+        telemetryM.addData("Target Velocity",   currentTPS);
+        telemetryM.addData("=== TURRET ===",    "");
+        telemetryM.addData("TURRET_ANGLE_SIGN", TURRET_ANGLE_SIGN);
+        telemetryM.addData("Robot Heading",   Math.toDegrees(robotHeading));
+        telemetryM.addData("Turret Current",  Math.toDegrees(getTurretAngle()));
+        telemetryM.addData("=== VISION ===",     "");
+        telemetryM.addData("Camera",             cameraInitError == null ? "OK" : ("ERR: " + cameraInitError));
+        telemetryM.addData("Red Tag Visible", goalTag != null);
+        telemetryM.addData("Turret Aim Source",  turretUsingCamera ? "CAMERA" : "ODOMETRY");
+        if (goalTag != null) {
+            telemetryM.addData("Tag fwd",    goalTag.ftcPose.y);
+            telemetryM.addData("Tag right", -goalTag.ftcPose.z);
+            telemetryM.addData("Flywheel Aim", lastAimBearingDeg);
+        }
+        telemetryM.addData("=== POSITION ===",  "");
+        telemetryM.addData("Robot rx",  rx);
+        telemetryM.addData("Robot ry ", ry);
+        telemetryM.addData("Turret Target Pos", turretMotor.getTargetPosition());
+        telemetryM.addData("=== PIDF ===",      "");
+        telemetryM.update();
+        telemetry.addData("Shot Preset", shootingFar ? "FAR (3200)" : "CLOSE (2700)");
+        telemetry.addData("Active kV", "%.6f", kV);
         telemetry.addData("Meas Dist",         measuredDistance);
         telemetry.addData("Last Meas Dist",     lastMeasuredDistance);
         telemetry.addData("spinidx",            spinidx);
@@ -266,6 +345,14 @@ public class MainTeleop extends OpMode {
         telemetry.addData("TURRET_ANGLE_OFFSET","%.2f rad (%.1f deg)", TURRET_ANGLE_OFFSET, Math.toDegrees(TURRET_ANGLE_OFFSET));
         telemetry.addData("Robot Heading",     "%.1f deg",   Math.toDegrees(robotHeading));
         telemetry.addData("Turret Current",    "%.1f deg",   Math.toDegrees(getTurretAngle()));
+        telemetry.addData("=== VISION ===",     "");
+        telemetry.addData("Camera",             cameraInitError == null ? "OK" : ("ERR: " + cameraInitError));
+        telemetry.addData("Red Tag Visible",   "%s", goalTag != null);
+        telemetry.addData("Turret Aim Source",  turretUsingCamera ? "CAMERA" : "ODOMETRY");
+        if (goalTag != null) {
+            telemetry.addData("Tag fwd / right", "%.1f in / %.1f in", goalTag.ftcPose.y, -goalTag.ftcPose.z);
+            telemetry.addData("Flywheel Aim",   "%.1f deg", lastAimBearingDeg);
+        }
         telemetry.addData("=== POSITION ===",  "");
         telemetry.addData("Robot",             "(%.1f, %.1f)", rx, ry);
         telemetry.addData("Turret Tick Limits","[%d, %d]",   TURRET_TICK_MIN, TURRET_TICK_MAX);
@@ -277,7 +364,7 @@ public class MainTeleop extends OpMode {
     // === HELPERS ===
 
     public void transfer(boolean shouldTransfer) {
-        bootKickerServo.setPosition(shouldTransfer ? 0.3 : 0);
+        bootKickerServo.setPosition(shouldTransfer ? 0.2 : 0);
     }
 
     public double normalizeAngle(double angle) {
@@ -323,12 +410,106 @@ public class MainTeleop extends OpMode {
     }
 
     public double getDistance(double rx, double ry) {
-        double dx = 140 - rx;
-        double dy = 140 - ry;
+        double dx = 144 - rx;
+        double dy = 144 - ry;
         return sqrt(dx * dx + dy * dy);
     }
 
     public double getTurretAngle() {
         return turretMotor.getCurrentPosition() / TURRET_TICkSFar_PER_RADIAN;
+    }
+
+    // === VISION HELPERS ===
+
+    /** Build the AprilTag processor + VisionPortal for the turret-mounted C920. */
+    private void initAprilTag() {
+        aprilTag = new AprilTagProcessor.Builder()
+                .build();
+        // Decimation 2 keeps a good detection range at a usable frame rate on a C920.
+        aprilTag.setDecimation(2);
+
+        visionPortal = new VisionPortal.Builder()
+                .setCamera(hardwareMap.get(WebcamName.class, CAMERA_NAME))
+                .setCameraResolution(new Size(640, 480))
+                .addProcessor(aprilTag)
+                .build();
+    }
+
+    /** Returns the RED goal (ID 24) detection if the camera currently sees it, else null. */
+    private AprilTagDetection getRedGoalDetection() {
+        if (aprilTag == null) return null;
+        List<AprilTagDetection> detections = aprilTag.getDetections();
+        for (AprilTagDetection d : detections) {
+            if (d.id == RED_GOAL_TAG_ID && d.ftcPose != null) {
+                return d;
+            }
+        }
+        return null;
+    }
+
+    /** Existing behaviour: point the turret at the goal using the odometry pose. */
+    private void aimTurretFromOdometry() {
+        double angleToGoal  = Math.atan2(144 - follower.getPose().getY(), 144 - follower.getPose().getX());
+        double turretTarget = angleToGoal - follower.getPose().getHeading();
+        setTurretAngle(turretTarget, TURRET_PWR);
+        turretUsingCamera = false;
+    }
+
+    /**
+     * Point the turret at the goal using the AprilTag detection.
+     *
+     * The camera is rolled 90° on the turret, so "right of the motor" shows up at the
+     * BOTTOM of the image: the tag's horizontal offset is carried by ftcPose.z (image
+     * vertical), and from the "right -> bottom" mounting the sign is real-right = -z.
+     * The camera also sits CAMERA_OFFSET_MM to the RIGHT of the flywheel, so we shift the
+     * tag into the flywheel's frame before solving the aim — this makes the FLYWHEEL (not
+     * the camera) end up pointed at the goal, cancelling the mounting parallax.
+     *
+     * Closed-loop: each cycle we nudge the turret by the residual bearing, so the sign
+     * matches the odometry path (turret frame is CCW-positive) and the loop self-corrects.
+     */
+    private void aimTurretFromCamera(AprilTagDetection tag) {
+        double forward  = tag.ftcPose.y;            // inches along the aim axis
+        double rightCam = -tag.ftcPose.z;           // inches, + = tag is to the camera's right
+
+        // Move the tag from the camera's frame into the flywheel's frame.
+        double offsetIn = CAMERA_OFFSET_MM / 25.4;  // camera is offsetIn to the right of the flywheel
+        double rightFly = rightCam + offsetIn;
+
+        // Horizontal angle the flywheel must swing toward the tag (+ = right / CW).
+        double aimRight = Math.atan2(rightFly, forward);
+        // Turret frame is CCW-positive (matches odometry aim), so invert; apply as a delta.
+        double correctionCcw = -aimRight * CAMERA_AIM_GAIN;
+
+        setTurretAngle(getTurretAngle() + correctionCcw, TURRET_PWR);
+
+        turretUsingCamera = true;
+        lastAimBearingDeg = Math.toDegrees(aimRight);
+    }
+
+    /**
+     * Manual low exposure / fixed gain to cut motion blur. Non-blocking: switches to
+     * Manual mode on one call, then applies the values on the next, so it never stalls
+     * the control loop.
+     */
+    private void setManualExposure(int exposureMs, int gain) {
+        if (visionPortal == null) { cameraExposureSet = true; return; }
+        ExposureControl exposureControl = visionPortal.getCameraControl(ExposureControl.class);
+        if (exposureControl == null) { cameraExposureSet = true; return; }
+        if (exposureControl.getMode() != ExposureControl.Mode.Manual) {
+            exposureControl.setMode(ExposureControl.Mode.Manual);
+            return; // let Manual mode settle; apply the values on the next loop
+        }
+        exposureControl.setExposure((long) exposureMs, TimeUnit.MILLISECONDS);
+        GainControl gainControl = visionPortal.getCameraControl(GainControl.class);
+        if (gainControl != null) gainControl.setGain(gain);
+        cameraExposureSet = true;
+    }
+
+    @Override
+    public void stop() {
+        if (visionPortal != null) {
+            visionPortal.close();
+        }
     }
 }
