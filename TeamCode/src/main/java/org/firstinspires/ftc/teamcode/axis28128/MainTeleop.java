@@ -37,7 +37,7 @@ public class MainTeleop extends OpMode {
     public static double BALL_DETECT_THRESHOLD = 65; // between ball (~40) and gap (~100)
     public static int BALL_DETECT_CONSECUTIVE = 3;    // readings needed to confirm
     private int FarReadingStreak = 0;
-    public static double SHOOT_ADVANCE_MS = 450; // tune this — time between each ball feed
+    public static double SHOOT_ADVANCE_MS_FAST = 150, SHOOT_ADVANCE_MS_SORTING = 1000; // tune this — time between each ball feed
     private double nextShootAdvanceTime = 0;
     public static double SHOOTER_POS_FAR = 0, SHOOTER_POS_CLOSE = 1;
     private Follower follower;
@@ -51,7 +51,8 @@ public class MainTeleop extends OpMode {
     public static double DRIVE_MIN_TURN = 0.2;
 
     // NEW:
-    public static double GOAL_RPM_FAR = 3200, GOAL_RPM_CLOSE = 2700, currentTPS = GOAL_RPM_FAR;
+    public static double GOAL_RPM_FAR = 3200, GOAL_RPM_CLOSE = 2800, currentTPS = GOAL_RPM_CLOSE;
+    public static double GOAL_MIN_CLOSE_RPM = 2500;
     private boolean shootingFar = true; // tracks which preset is active, so we know which kV to use
     public static double TURRET_TPR = 873;
     public static double TURRET_TICkSFar_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
@@ -68,7 +69,7 @@ public class MainTeleop extends OpMode {
     // === SHOOTER PIDF TUNING ===
     public static double kVFar = 0.000269, kVClose = 0.000278;  // volts (power) per RPM — main feedforward term
     public static double kSFar = 0.043;     // static friction/minimum power to overcome stiction
-    public static double kPFar = 0.011;   // proportional correction for RPM error 3200
+    public static double kPFar = 0.025;   // proportional correction for RPM error 3200
     //just need to change goalRPM values between 3200 and 2700 for close and far shooting, also kV value for both. also write correct equation for the PIDF loop.
 
     public DcMotor transferMotor, turretMotor, intake;
@@ -197,12 +198,13 @@ public class MainTeleop extends OpMode {
         // BUG FIX #1: lastMeasuredDistance is captured here and ONLY here,
         // so the ball-detect comparison below sees two genuinely different readings.
         measuredDistance = spindexDistance.getDistance(DistanceUnit.MM);
-        isShooting = (RPM >= currentTPS);
+        isShooting = RPM >= GOAL_MIN_CLOSE_RPM;
 
         // === SHOOTER / TRANSFER ===
         if (gamepad1.left_bumper) {
+            visionPortal.resumeStreaming();
             shooterMotor.setPower(pwr);
-            transferMotor.setPower(0.2);
+            transferMotor.setPower(0.8);
             // Camera-first turret aiming: use the webcam when it sees the RED goal tag,
             // otherwise fall back to the odometry-based aim.
             if (goalTag != null) {
@@ -214,10 +216,11 @@ public class MainTeleop extends OpMode {
             if (isShooting) {
                 if (currentTimer.milliseconds() >= nextShootAdvanceTime && spinidx < 5) {
                     spinidx++;
-                    nextShootAdvanceTime = currentTimer.milliseconds() + SHOOT_ADVANCE_MS;
+                    nextShootAdvanceTime = currentTimer.milliseconds() + SHOOT_ADVANCE_MS_FAST;
                 }
             }
         } else {
+            visionPortal.stopStreaming();
             shooterMotor.setPower(0);
             transferMotor.setPower(0);
             transfer(false);
@@ -236,7 +239,7 @@ public class MainTeleop extends OpMode {
         if (gamepad1.right_bumper && spinidx != 3) {
             intake.setPower(-1);
         } else if (gamepad1.y) {
-            intake.setPower(0.8);
+            intake.setPower(0.5);
         } else {
             intake.setPower(0);
         }
