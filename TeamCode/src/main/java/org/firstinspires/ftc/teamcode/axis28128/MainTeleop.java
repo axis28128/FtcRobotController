@@ -39,6 +39,7 @@ public class MainTeleop extends OpMode {
     private int FarReadingStreak = 0;
     public static double SHOOT_ADVANCE_MS = 450; // tune this — time between each ball feed
     private double nextShootAdvanceTime = 0;
+    public static double SHOOTER_POS_FAR = 0, SHOOTER_POS_CLOSE = 1;
     private Follower follower;
     public static Pose startingPose;
     public TelemetryManager telemetryM;
@@ -49,12 +50,14 @@ public class MainTeleop extends OpMode {
     // responsive even at full drive speed. Raise for stronger turning while moving.
     public static double DRIVE_MIN_TURN = 0.2;
 
-    public static double shooterMaxTPS = 6200, shooterMinTPS = 2000, currentTPS = shooterMaxTPS;
+    // NEW:
+    public static double GOAL_RPM_FAR = 3200, GOAL_RPM_CLOSE = 2700, currentTPS = GOAL_RPM_FAR;
+    private boolean shootingFar = true; // tracks which preset is active, so we know which kV to use
     public static double TURRET_TPR = 873;
     public static double TURRET_TICkSFar_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
     public static double TURRET_PWR = 0.3;
 
-    public static double TURRET_ANGLE_SIGN = -1;
+    public static double TURRET_ANGLE_SIGN = 1;
     public static double TURRET_ANGLE_OFFSET = ( Math.PI / 6 ) + ( Math.PI / 18) + (Math.PI / 36);
 
     public static double TURRET_MIN_ANGLE = 0;
@@ -101,7 +104,7 @@ public class MainTeleop extends OpMode {
     private double currentDistance = 0;
     private double distRatioDebug = 0;
 
-    public double[] spindexerPos = {0.24, 0.48, 0.72, 0.53, 0.27, 0};
+    public double[] spindexerPos = {0.31, 0.55, 0.8, 0.62, 0.36, 0.14};
 
     // BUG FIX #1: lastMeasuredDistance is now only updated inside the timed block,
     // not again at the bottom of loop(). This ensures the ball-detect comparison
@@ -181,9 +184,11 @@ public class MainTeleop extends OpMode {
         AprilTagDetection goalTag = getRedGoalDetection();
 
         double gearRatio = (double) 10 / 16;
-        double RPM = (((-shooterMotor.getVelocity()) / 28) * 60) / gearRatio;
+        double RPM = (((-shooterMotor.getVelocity()) / 28) * 60) * gearRatio;
 
-        double ff = kSFar + (kVFar * currentTPS);
+        // NEW:
+        double kV = shootingFar ? kVFar : kVClose;   // feedforward term matches the active goal RPM
+        double ff = kSFar + (kV * currentTPS);
         double error = currentTPS - RPM;
         double feedback = kPFar * error;
         double pwr = Math.max(0, ff + feedback);
@@ -229,7 +234,7 @@ public class MainTeleop extends OpMode {
         // BUG FIX #7: Intake check now happens AFTER spinidx may have been set to 3
         // above, so the "don't intake while shooting" gate is evaluated correctly.
         if (gamepad1.right_bumper && spinidx != 3) {
-            intake.setPower(-0.8);
+            intake.setPower(-1);
         } else if (gamepad1.y) {
             intake.setPower(0.8);
         } else {
@@ -253,14 +258,9 @@ public class MainTeleop extends OpMode {
         if (ballNearNow && !ballWasDetected && !gamepad1.left_bumper && spinidx < 2) {
             spinidx++;
         }
-//        } else if(ballNearNow && !ballWasDetected && !gamepad1.left_bumper && spinidx == 2) {
-//            spinidx = 3;
-//        }
         ballWasDetected = ballNearNow;
-        // BUG FIX #3: Clamp spinidx properly — wrap at top, floor at 0.
         if (spinidx > 6) spinidx = 0;
         if (spinidx < 0) spinidx = 0;
-
         spindexerServo.setPosition(spindexerPos[spinidx]);
 
         // === DRIVE ===
@@ -282,19 +282,10 @@ public class MainTeleop extends OpMode {
         double rx          = currPose.getX();
         double ry          = currPose.getY();
         double robotHeading = follower.getHeading();
-
-        // BUG FIX #4: angleToGoal is field-relative. To get the angle the turret
-        // (which is mounted on the robot) needs to point, subtract the robot heading
-        // instead of adding it. Adding heading gave a nonsensical double-rotation.
-
-
-        // === Far / FAR SPEED TOGGLE ===
         if (gamepad1.xWasPressed()) {
-            if (currentTPS == shooterMinTPS) {
-                currentTPS = shooterMaxTPS;
-            } else {
-                currentTPS = shooterMinTPS;
-            }
+            shootingFar = !shootingFar;
+            currentTPS = shootingFar ? GOAL_RPM_FAR : GOAL_RPM_CLOSE;
+            shooterServo.setPosition(shootingFar ? SHOOTER_POS_FAR : SHOOTER_POS_CLOSE);
         }
 
         // === SHOOTER SERVO ANGLE ===
@@ -304,8 +295,41 @@ public class MainTeleop extends OpMode {
             shooterServo.setPosition(shooterServo.getPosition() - 0.05);
         }
 
-        // === TELEMETRY ===
+        // === ALL TELEMETRY ===
         double curVelocity = RPM;
+        telemetryM.addData("Shot Preset", shootingFar ? "FAR (3200)" : "CLOSE (2700)");
+        telemetryM.addData("Active kV", kV);
+        telemetryM.addData("Meas Dist",         measuredDistance);
+        telemetryM.addData("Last Meas Dist",     lastMeasuredDistance);
+        telemetryM.addData("spinidx",            spinidx);
+        telemetryM.addData("=== SHOOTER ===",   "");
+        telemetryM.addData("Distance to Goal",  currentDistance);
+        telemetryM.addData("Dist Ratio (0-1)",  distRatioDebug);
+        telemetryM.addData("Shooter RPM",       currentShooterRPM);
+        telemetryM.addData("Shooting Active",   isShooting);
+        telemetryM.addData("Current Velocity",  curVelocity);
+        telemetryM.addData("Target Velocity",   currentTPS);
+        telemetryM.addData("=== TURRET ===",    "");
+        telemetryM.addData("TURRET_ANGLE_SIGN", TURRET_ANGLE_SIGN);
+        telemetryM.addData("Robot Heading",   Math.toDegrees(robotHeading));
+        telemetryM.addData("Turret Current",  Math.toDegrees(getTurretAngle()));
+        telemetryM.addData("=== VISION ===",     "");
+        telemetryM.addData("Camera",             cameraInitError == null ? "OK" : ("ERR: " + cameraInitError));
+        telemetryM.addData("Red Tag Visible", goalTag != null);
+        telemetryM.addData("Turret Aim Source",  turretUsingCamera ? "CAMERA" : "ODOMETRY");
+        if (goalTag != null) {
+            telemetryM.addData("Tag fwd",    goalTag.ftcPose.y);
+            telemetryM.addData("Tag right", -goalTag.ftcPose.z);
+            telemetryM.addData("Flywheel Aim", lastAimBearingDeg);
+        }
+        telemetryM.addData("=== POSITION ===",  "");
+        telemetryM.addData("Robot rx",  rx);
+        telemetryM.addData("Robot ry ", ry);
+        telemetryM.addData("Turret Target Pos", turretMotor.getTargetPosition());
+        telemetryM.addData("=== PIDF ===",      "");
+        telemetryM.update();
+        telemetry.addData("Shot Preset", shootingFar ? "FAR (3200)" : "CLOSE (2700)");
+        telemetry.addData("Active kV", "%.6f", kV);
         telemetry.addData("Meas Dist",         measuredDistance);
         telemetry.addData("Last Meas Dist",     lastMeasuredDistance);
         telemetry.addData("spinidx",            spinidx);
@@ -340,7 +364,7 @@ public class MainTeleop extends OpMode {
     // === HELPERS ===
 
     public void transfer(boolean shouldTransfer) {
-        bootKickerServo.setPosition(shouldTransfer ? 0.3 : 0);
+        bootKickerServo.setPosition(shouldTransfer ? 0.2 : 0);
     }
 
     public double normalizeAngle(double angle) {

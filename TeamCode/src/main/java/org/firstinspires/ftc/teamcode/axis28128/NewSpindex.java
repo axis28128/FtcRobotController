@@ -14,7 +14,7 @@ public class NewSpindex extends OpMode {
 
     @Override
     public void init() {
-        spindexerServo = hardwareMap.get(Servo.class, "shooterServo");
+        spindexerServo = hardwareMap.get(Servo.class, "spindexerServo");
         distanceSensor = hardwareMap.get(DistanceSensor.class, "distanceSensor");
         spindexerServo.setPosition(pos);
     }
