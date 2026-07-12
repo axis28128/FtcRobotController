@@ -144,7 +144,7 @@ public class MainTeleop extends OpMode {
         turretMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         transferMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-        startingPose = new Pose(80, 8, 0);
+        startingPose = new Pose(80, 8, Math.toRadians(180));
         follower = Constants.createFollower(hardwareMap);
         follower.setStartingPose(startingPose);
         follower.update();
@@ -202,7 +202,6 @@ public class MainTeleop extends OpMode {
 
         // === SHOOTER / TRANSFER ===
         if (gamepad1.left_bumper) {
-            visionPortal.resumeStreaming();
             shooterMotor.setPower(pwr);
             transferMotor.setPower(0.8);
             // Camera-first turret aiming: use the webcam when it sees the RED goal tag,
@@ -220,7 +219,6 @@ public class MainTeleop extends OpMode {
                 }
             }
         } else {
-            visionPortal.stopStreaming();
             shooterMotor.setPower(0);
             transferMotor.setPower(0);
             transfer(false);
@@ -278,7 +276,7 @@ public class MainTeleop extends OpMode {
         double turnHeadroom = Math.max(DRIVE_MIN_TURN, 1 - (Math.abs(forward) + Math.abs(lateral)));
         turn = Math.max(-turnHeadroom, Math.min(turnHeadroom, turn));
 
-        follower.setTeleOpDrive(forward, lateral, turn, false);
+        follower.setTeleOpDrive(forward, lateral, turn, false, Math.toRadians(180));
 
         // === TURRET ===
         Pose   currPose    = follower.getPose();
@@ -452,25 +450,11 @@ public class MainTeleop extends OpMode {
 
     /** Existing behaviour: point the turret at the goal using the odometry pose. */
     private void aimTurretFromOdometry() {
-        double angleToGoal  = Math.atan2(144 - follower.getPose().getY(), 144 - follower.getPose().getX());
+        double angleToGoal  = Math.atan2(140 - follower.getPose().getY(), -follower.getPose().getX());
         double turretTarget = angleToGoal - follower.getPose().getHeading();
         setTurretAngle(turretTarget, TURRET_PWR);
         turretUsingCamera = false;
     }
-
-    /**
-     * Point the turret at the goal using the AprilTag detection.
-     *
-     * The camera is rolled 90° on the turret, so "right of the motor" shows up at the
-     * BOTTOM of the image: the tag's horizontal offset is carried by ftcPose.z (image
-     * vertical), and from the "right -> bottom" mounting the sign is real-right = -z.
-     * The camera also sits CAMERA_OFFSET_MM to the RIGHT of the flywheel, so we shift the
-     * tag into the flywheel's frame before solving the aim — this makes the FLYWHEEL (not
-     * the camera) end up pointed at the goal, cancelling the mounting parallax.
-     *
-     * Closed-loop: each cycle we nudge the turret by the residual bearing, so the sign
-     * matches the odometry path (turret frame is CCW-positive) and the loop self-corrects.
-     */
     private void aimTurretFromCamera(AprilTagDetection tag) {
         double forward  = tag.ftcPose.y;            // inches along the aim axis
         double rightCam = -tag.ftcPose.z;           // inches, + = tag is to the camera's right
@@ -489,12 +473,6 @@ public class MainTeleop extends OpMode {
         turretUsingCamera = true;
         lastAimBearingDeg = Math.toDegrees(aimRight);
     }
-
-    /**
-     * Manual low exposure / fixed gain to cut motion blur. Non-blocking: switches to
-     * Manual mode on one call, then applies the values on the next, so it never stalls
-     * the control loop.
-     */
     private void setManualExposure(int exposureMs, int gain) {
         if (visionPortal == null) { cameraExposureSet = true; return; }
         ExposureControl exposureControl = visionPortal.getCameraControl(ExposureControl.class);
