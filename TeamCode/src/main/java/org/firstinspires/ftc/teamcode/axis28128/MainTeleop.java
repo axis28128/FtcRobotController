@@ -44,6 +44,10 @@ public class MainTeleop extends OpMode {
     public boolean sorting = true, globalSorting = true;
     private Follower follower;
     public static Pose startingPose;
+    // Used when no autonomous ran just before this teleop (e.g. teleop-only match):
+    // park the robot in this corner before starting. Tune to wherever you actually place it.
+    public static Pose NO_AUTO_FALLBACK_POSE = new Pose(8, 8, Math.toRadians(90));
+    private String startPoseSource = "?";
     public TelemetryManager telemetryM;
     public int trackingTarget = 1;
     public static double DRIVE_MIN_TURN = 0.2;
@@ -134,10 +138,25 @@ public class MainTeleop extends OpMode {
         turretMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         transferMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-        startingPose = new Pose(80, 8, Math.toRadians(180));
+        // Pick up the pose the autonomous saved at the end of its 30 seconds. If there
+        // is no fresh saved pose (no auto ran before this teleop), fall back to the
+        // hardcoded corner pose. Fully automatic — no driver input needed.
+        Pose autoEndPose = PoseStorage.loadIfFresh();
+        if (autoEndPose != null) {
+            startingPose = autoEndPose;
+            startPoseSource = "AUTO HANDOFF";
+        } else {
+            startingPose = NO_AUTO_FALLBACK_POSE;
+            startPoseSource = "FALLBACK CORNER";
+        }
         follower = Constants.createFollower(hardwareMap);
         follower.setStartingPose(startingPose);
         follower.update();
+
+        telemetry.addData("Start Pose Source", startPoseSource);
+        telemetry.addData("Start Pose", "(%.1f, %.1f, %.0f deg)",
+                startingPose.getX(), startingPose.getY(), Math.toDegrees(startingPose.getHeading()));
+        telemetry.update();
         try {
             initAprilTag();
         } catch (Exception e) {
@@ -316,6 +335,7 @@ public class MainTeleop extends OpMode {
             telemetryM.addData("Flywheel Aim", lastAimBearingDeg);
         }
         telemetryM.addData("=== POSITION ===",  "");
+        telemetryM.addData("Start Pose Source", startPoseSource);
         telemetryM.addData("Robot rx",  rx);
         telemetryM.addData("Robot ry ", ry);
         telemetryM.addData("Turret Target Pos", turretMotor.getTargetPosition());
@@ -354,6 +374,7 @@ public class MainTeleop extends OpMode {
             telemetry.addData("Flywheel Aim",   "%.1f deg", lastAimBearingDeg);
         }
         telemetry.addData("=== POSITION ===",  "");
+        telemetry.addData("Start Pose Source", startPoseSource);
         telemetry.addData("Robot",             "(%.1f, %.1f)", rx, ry);
         telemetry.addData("Turret Tick Limits","[%d, %d]",   TURRET_TICK_MIN, TURRET_TICK_MAX);
         telemetry.addData("Turret Target Pos", turretMotor.getTargetPosition());
@@ -482,6 +503,9 @@ public class MainTeleop extends OpMode {
 
     @Override
     public void stop() {
+        // Consume the auto handoff pose: a second teleop run right after this one
+        // should start from the fallback corner, not from a stale auto pose.
+        PoseStorage.clear();
         if (visionPortal != null) {
             visionPortal.close();
         }

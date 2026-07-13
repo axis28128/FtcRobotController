@@ -58,6 +58,10 @@ public class CloseRedTest extends OpMode {
     private ElapsedTime currentTimer = new ElapsedTime();
     private ElapsedTime autoActionTimer = new ElapsedTime();
 
+    // Throttle for persisting the pose so teleop can pick it up (see PoseStorage)
+    public static double POSE_SAVE_INTERVAL_MS = 500;
+    private double nextPoseSaveTime = 0;
+
     // === AUTO TOGGLES ===
     public boolean isShootingActive = false;
     public boolean isIntakingActive = false;
@@ -104,10 +108,23 @@ public class CloseRedTest extends OpMode {
         updateSubsystems();     // Update shooter/intake/turret logic continuously
         autonomousPathUpdate(); // Update auto state machine
 
+        // Persist the pose periodically so teleop still gets a recent one even if
+        // the app dies mid-auto and stop() never runs.
+        if (currentTimer.milliseconds() >= nextPoseSaveTime) {
+            PoseStorage.save(follower.getPose());
+            nextPoseSaveTime = currentTimer.milliseconds() + POSE_SAVE_INTERVAL_MS;
+        }
+
         panelsTelemetry.debug("Path State", pathState);
         panelsTelemetry.debug("Shooting Active", isShootingActive);
         panelsTelemetry.debug("Intaking Active", isIntakingActive);
         panelsTelemetry.update(telemetry);
+    }
+
+    @Override
+    public void stop() {
+        // Final, most accurate pose for the teleop handoff.
+        PoseStorage.save(follower.getPose());
     }
 
     // =====================================================================
