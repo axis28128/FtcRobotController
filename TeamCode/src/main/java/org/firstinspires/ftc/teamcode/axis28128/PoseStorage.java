@@ -39,6 +39,7 @@ public final class PoseStorage {
             // Never let a failed pose write take down the OpMode.
         }
     }
+    // claude magic
 
     /** @return the saved pose if the file exists, else null. Deletes the file either way. */
     public static Pose loadAndClear() {
