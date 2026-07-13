@@ -14,16 +14,14 @@ import java.util.Locale;
  * on the Robot Controller, so the handoff survives the app restarting between periods.
  *
  * Autonomous calls {@link #save} (periodically and on stop). Teleop calls
- * {@link #loadIfFresh()} in init: it returns the saved pose only if it was written
- * recently enough that an autonomous period actually just ran; otherwise it returns
- * null and the teleop falls back to its hardcoded corner pose. Teleop calls
- * {@link #clear()} when it ends so a second back-to-back teleop also gets the fallback.
+ * {@link #loadAndClear()} in init: if the file exists, that means an autonomous period
+ * just ran, so it reads the pose and deletes the file. If the file doesn't exist (e.g.
+ * a second teleop run back-to-back with no autonomous in between), it returns null and
+ * the teleop falls back to its hardcoded corner pose. Deleting the file on read means a
+ * second teleop right after never sees a stale pose from the earlier run.
  */
 public final class PoseStorage {
     private static final String FILE_NAME = "autoEndPose.txt";
-
-    /** A saved pose older than this means no auto just ran (covers auto->teleop transition + setup). */
-    public static long MAX_POSE_AGE_MS = 3 * 60 * 1000;
 
     private PoseStorage() {}
 
@@ -34,39 +32,29 @@ public final class PoseStorage {
 
     public static void save(Pose pose) {
         try {
-            String data = String.format(Locale.US, "%f %f %f %d",
-                    pose.getX(), pose.getY(), pose.getHeading(), System.currentTimeMillis());
+            String data = String.format(Locale.US, "%f %f %f",
+                    pose.getX(), pose.getY(), pose.getHeading());
             ReadWriteFile.writeFile(file(), data);
         } catch (RuntimeException e) {
             // Never let a failed pose write take down the OpMode.
         }
     }
 
-    /** @return the saved pose if one was written within {@link #MAX_POSE_AGE_MS}, else null. */
-    public static Pose loadIfFresh() {
+    /** @return the saved pose if the file exists, else null. Deletes the file either way. */
+    public static Pose loadAndClear() {
+        File f = file();
         try {
-            File f = file();
             if (!f.exists()) return null;
             String[] parts = ReadWriteFile.readFile(f).trim().split("\\s+");
-            if (parts.length != 4) return null;
-            long savedAt = Long.parseLong(parts[3]);
-            long age = System.currentTimeMillis() - savedAt;
-            if (age < 0 || age > MAX_POSE_AGE_MS) return null;
+            if (parts.length != 3) return null;
             return new Pose(Double.parseDouble(parts[0]),
                     Double.parseDouble(parts[1]),
                     Double.parseDouble(parts[2]));
         } catch (RuntimeException e) {
             return null; // corrupt/unreadable file -> behave like no auto ran
-        }
-    }
-
-    public static void clear() {
-        try {
-            File f = file();
-            if (f.exists()) //noinspection ResultOfMethodCallIgnored
-                f.delete();
-        } catch (RuntimeException e) {
-            // ignore
+        } finally {
+            //noinspection ResultOfMethodCallIgnored
+            f.delete();
         }
     }
 }

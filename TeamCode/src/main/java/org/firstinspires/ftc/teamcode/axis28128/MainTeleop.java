@@ -138,10 +138,11 @@ public class MainTeleop extends OpMode {
         turretMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         transferMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-        // Pick up the pose the autonomous saved at the end of its 30 seconds. If there
-        // is no fresh saved pose (no auto ran before this teleop), fall back to the
-        // hardcoded corner pose. Fully automatic — no driver input needed.
-        Pose autoEndPose = PoseStorage.loadIfFresh();
+        // Pick up the pose the autonomous saved at the end of its 30 seconds (and consume
+        // the file so it doesn't leak into a later back-to-back teleop). If there's no
+        // file, no auto ran before this teleop, so fall back to the hardcoded corner pose.
+        // Fully automatic — no driver input needed.
+        Pose autoEndPose = PoseStorage.loadAndClear();
         if (autoEndPose != null) {
             startingPose = autoEndPose;
             startPoseSource = "AUTO HANDOFF";
@@ -503,9 +504,6 @@ public class MainTeleop extends OpMode {
 
     @Override
     public void stop() {
-        // Consume the auto handoff pose: a second teleop run right after this one
-        // should start from the fallback corner, not from a stale auto pose.
-        PoseStorage.clear();
         if (visionPortal != null) {
             visionPortal.close();
         }
