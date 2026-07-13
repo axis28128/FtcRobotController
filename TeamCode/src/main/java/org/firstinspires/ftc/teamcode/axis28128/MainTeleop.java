@@ -87,8 +87,8 @@ public class MainTeleop extends OpMode {
     private AprilTagProcessor aprilTag;
     private boolean cameraExposureSet = false;
     private String  cameraInitError   = null;
-    private boolean turretUsingCamera = false; // telemetry: camera vs odometry aim
-    private double  lastAimBearingDeg = 0;     // telemetry: flywheel->tag horizontal angle
+    private boolean turretUsingCamera = false;
+    private double  lastAimBearingDeg = 0;
 
     private boolean isShooting = false;
     private static ElapsedTime currentTimer = new ElapsedTime();
@@ -100,7 +100,7 @@ public class MainTeleop extends OpMode {
     public double[] spindexerPos = {0.31, 0.55, 0.8, 0.62, 0.36, 0.14};
     public char[] spindexerColor = {'P', 'P', 'G'};
     public String[] patterns = {"GPP", "PGP", "PPG"};
-    public int patternIdx = 0, obj = 1;
+    public static int patternIdx = 0, obj = 4;
 
     public double lastMeasuredDistance = 0, measuredDistance = 0;
 
@@ -266,9 +266,6 @@ public class MainTeleop extends OpMode {
         double forward = -gamepad1.left_stick_y;
         double lateral = -gamepad1.left_stick_x;
         double turn    = -gamepad1.right_stick_x;
-
-        double turnHeadroom = Math.max(DRIVE_MIN_TURN, 1 - (Math.abs(forward) + Math.abs(lateral)));
-        turn = Math.max(-turnHeadroom, Math.min(turnHeadroom, turn));
 
         follower.setTeleOpDrive(forward, lateral, turn, false, Math.toRadians(180));
 
