@@ -51,6 +51,7 @@ public final class PoseStorage {
             lastStatus = "WRITE FAILED (" + e + ")";
         }
     }
+    // claude magic
 
     /** @return the saved pose if the file exists and parses, else null. Deletes the file either way. */
     public static Pose loadAndClear() {

@@ -46,7 +46,7 @@ public class MainTeleop extends OpMode {
     public static Pose startingPose;
     // Used when no autonomous ran just before this teleop (e.g. teleop-only match):
     // park the robot in this corner before starting. Tune to wherever you actually place it.
-    public static Pose NO_AUTO_FALLBACK_POSE = new Pose(8, 8, Math.toRadians(90));
+    public static Pose NO_AUTO_FALLBACK_POSE = new Pose(80, 8, Math.toRadians(180));
     private String startPoseSource = "?";
     public TelemetryManager telemetryM;
     public int trackingTarget = 1;
@@ -468,7 +468,7 @@ public class MainTeleop extends OpMode {
         if(object == 1) angleToGoal  = Math.atan2(144 - follower.getPose().getY(), -follower.getPose().getX());
         else if(object == 2) angleToGoal = Math.atan2(144 - follower.getPose().getY(), 144-follower.getPose().getX());
         else if(object == 3) angleToGoal = Math.atan2(144 - follower.getPose().getY(), 72-follower.getPose().getX());
-        else if(object == 4) angleToGoal = Math.atan2(follower.getPose().getY()+144, 72-follower.getPose().getX());
+        else if(object == 4) angleToGoal = Math.atan2(-follower.getPose().getY() - 144, 72-follower.getPose().getX());
         double turretTarget = angleToGoal - follower.getPose().getHeading();
         setTurretAngle(turretTarget, TURRET_PWR);
         turretUsingCamera = false;
