@@ -141,7 +141,7 @@ public class MainTeleop extends OpMode {
         // Pick up the pose the autonomous saved at the end of its 30 seconds (and consume
         // the file so it doesn't leak into a later back-to-back teleop). If there's no
         // file, no auto ran before this teleop, so fall back to the hardcoded corner pose.
-        // Fully automatic — no driver input needed.
+
         Pose autoEndPose = PoseStorage.loadAndClear();
         if (autoEndPose != null) {
             startingPose = autoEndPose;
