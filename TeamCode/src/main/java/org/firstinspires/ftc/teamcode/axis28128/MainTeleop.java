@@ -216,22 +216,24 @@ public class MainTeleop extends OpMode {
                     nextShootAdvanceTime = currentTimer.milliseconds() + SHOOT_ADVANCE_MS_FAST;
                 } else
                 if(currentTimer.milliseconds() >= nextShootAdvanceTime && sorting && shotBalls < 3 && globalSorting) {
-                    char neededBall = patterns[patternIdx].charAt(shotBalls);
-                    if(neededBall == spindexerColor[0]) {
-                        spinidx = 5;
-                        spindexerColor[0] = 'X';
-                    } else if(neededBall == spindexerColor[1]) {
-                        spinidx = 4;
-                        spindexerColor[1] = 'X';
-                    } else if(neededBall == spindexerColor[2]) {
-                        spinidx = 3;
-                        spindexerColor[2] = 'X';
+                    double advanceInterval;
+                    if (shotBalls == 0) {
+                        // One rotation straight to whichever slot holds the pattern's first
+                        // ball. The other two follow via the same adjacent stepping the
+                        // unsorted fast path uses (spinidx 3->4->5 wrapping), so after this
+                        // single jump the rest of the sequence is one continuous fast motion.
+                        char firstNeeded = patterns[patternIdx].charAt(0);
+                        if (spindexerColor[2] == firstNeeded)      spinidx = 3;
+                        else if (spindexerColor[1] == firstNeeded) spinidx = 4;
+                        else if (spindexerColor[0] == firstNeeded) spinidx = 5;
+                        else { sorting = false; spinidx = 3; }
+                        advanceInterval = SHOOT_ADVANCE_MS_SORTING;
                     } else {
-                        sorting = false;
-                        spinidx = 3;
+                        spinidx++; spinidx %= 6; spinidx = Math.max(3, spinidx);
+                        advanceInterval = SHOOT_ADVANCE_MS_FAST;
                     }
                     shotBalls++;
-                    nextShootAdvanceTime = currentTimer.milliseconds() + SHOOT_ADVANCE_MS_SORTING;
+                    nextShootAdvanceTime = currentTimer.milliseconds() + advanceInterval;
                 }
 
 
