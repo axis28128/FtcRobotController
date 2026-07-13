@@ -46,11 +46,6 @@ public class MainTeleop extends OpMode {
     public static Pose startingPose;
     public TelemetryManager telemetryM;
     public int trackingTarget = 1;
-
-    // === DRIVE FEEL TUNING (live-tunable in Panels) ===
-    // Translation gets priority: rotation is capped to the wheel budget left over
-    // after translation's demand, but never below this floor — so steering stays
-    // responsive even at full drive speed. Raise for stronger turning while moving.
     public static double DRIVE_MIN_TURN = 0.2;
 
     // NEW:
@@ -80,12 +75,6 @@ public class MainTeleop extends OpMode {
     public Servo spindexerServo, bootKickerServo, shooterServo;
     public NormalizedColorSensor colorSensor;
     public DistanceSensor spindexDistance;
-
-    // === VISION: turret AprilTag tracking (Decode RED goal, tag ID 24 "RedTarget") ===
-    // The C920 is mounted on the turret, rolled 90° (sideways), CAMERA_OFFSET_MM to the
-    // RIGHT of the flywheel center. Because of the 90° roll, a tag to the turret's right
-    // appears toward the BOTTOM of the image, so the horizontal aim error lives in
-    // ftcPose.z (image vertical), not ftcPose.x. See aimTurretFromCamera() for the math.
     public static String  CAMERA_NAME         = "Webcam 1"; // must match the robot config name
     public static int     RED_GOAL_TAG_ID     = 24;         // Decode "RedTarget"
     public static double  CAMERA_OFFSET_MM    = 87.25;       // camera is this far RIGHT of flywheel center
@@ -113,17 +102,12 @@ public class MainTeleop extends OpMode {
     public String[] patterns = {"GPP", "PGP", "PPG"};
     public int patternIdx = 0, obj = 1;
 
-    // BUG FIX #1: lastMeasuredDistance is now only updated inside the timed block,
-    // not again at the bottom of loop(). This ensures the ball-detect comparison
-    // between consecutive readings is valid.
     public double lastMeasuredDistance = 0, measuredDistance = 0;
 
     private double timerTarget = 0;
     private final double deltaDistanceSensorReadingsMillis = 170;
     public int spinidx = 0, shotBalls = 0;
     public boolean ballWasDetected = false;
-
-    // TrackSFar whether PIDF needs to be re-applied (only on change, not every frame).
 
     @Override
     public void init() {
