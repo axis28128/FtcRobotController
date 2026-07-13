@@ -257,7 +257,6 @@ public class CloseRedTest extends OpMode {
                 break;
 
             case -1:
-                // Robot is completely done with the pathing sequence and is continually shooting
                 break;
         }
     }
