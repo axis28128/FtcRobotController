@@ -23,6 +23,11 @@ import java.util.Locale;
 public final class PoseStorage {
     private static final String FILE_NAME = "autoEndPose.txt";
 
+    // Human-readable outcome of the last save()/loadAndClear() call, for telemetry —
+    // read/write failures here were previously swallowed silently, which made a bad
+    // handoff indistinguishable from "no autonomous ran". Surface it instead.
+    public static volatile String lastStatus = "(none yet)";
+
     private PoseStorage() {}
 
     private static File file() {
@@ -34,24 +39,40 @@ public final class PoseStorage {
         try {
             String data = String.format(Locale.US, "%f %f %f",
                     pose.getX(), pose.getY(), pose.getHeading());
-            ReadWriteFile.writeFile(file(), data);
+            File f = file();
+            ReadWriteFile.writeFile(f, data);
+            // writeFile() swallows IOExceptions internally, so confirm the write by
+            // reading back rather than trusting a lack of thrown exception.
+            String readBack = ReadWriteFile.readFile(f);
+            lastStatus = data.equals(readBack)
+                    ? ("saved OK: " + data)
+                    : ("WRITE FAILED (readback mismatch), wanted: " + data + " got: " + readBack);
         } catch (RuntimeException e) {
-            // Never let a failed pose write take down the OpMode.
+            lastStatus = "WRITE FAILED (" + e + ")";
         }
     }
-    // claude magic
 
-    /** @return the saved pose if the file exists, else null. Deletes the file either way. */
+    /** @return the saved pose if the file exists and parses, else null. Deletes the file either way. */
     public static Pose loadAndClear() {
         File f = file();
         try {
-            if (!f.exists()) return null;
-            String[] parts = ReadWriteFile.readFile(f).trim().split("\\s+");
-            if (parts.length != 3) return null;
-            return new Pose(Double.parseDouble(parts[0]),
+            if (!f.exists()) {
+                lastStatus = "no file found at " + f.getAbsolutePath();
+                return null;
+            }
+            String raw = ReadWriteFile.readFile(f);
+            String[] parts = raw.trim().split("\\s+");
+            if (parts.length != 3) {
+                lastStatus = "file corrupt, ignored (raw: \"" + raw + "\")";
+                return null;
+            }
+            Pose pose = new Pose(Double.parseDouble(parts[0]),
                     Double.parseDouble(parts[1]),
                     Double.parseDouble(parts[2]));
+            lastStatus = "loaded OK: " + raw.trim();
+            return pose;
         } catch (RuntimeException e) {
+            lastStatus = "READ FAILED (" + e + ")";
             return null; // corrupt/unreadable file -> behave like no auto ran
         } finally {
             //noinspection ResultOfMethodCallIgnored

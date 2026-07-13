@@ -118,6 +118,7 @@ public class CloseRedTest extends OpMode {
         panelsTelemetry.debug("Path State", pathState);
         panelsTelemetry.debug("Shooting Active", isShootingActive);
         panelsTelemetry.debug("Intaking Active", isIntakingActive);
+        panelsTelemetry.debug("Pose Save Status", PoseStorage.lastStatus);
         panelsTelemetry.update(telemetry);
     }
 
@@ -125,6 +126,8 @@ public class CloseRedTest extends OpMode {
     public void stop() {
         // Final, most accurate pose for the teleop handoff.
         PoseStorage.save(follower.getPose());
+        telemetry.addData("Pose Save Status", PoseStorage.lastStatus);
+        telemetry.update();
     }
 
     // =====================================================================

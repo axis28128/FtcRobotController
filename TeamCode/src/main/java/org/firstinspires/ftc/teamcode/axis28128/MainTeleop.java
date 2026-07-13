@@ -157,6 +157,7 @@ public class MainTeleop extends OpMode {
         telemetry.addData("Start Pose Source", startPoseSource);
         telemetry.addData("Start Pose", "(%.1f, %.1f, %.0f deg)",
                 startingPose.getX(), startingPose.getY(), Math.toDegrees(startingPose.getHeading()));
+        telemetry.addData("Pose Load Status", PoseStorage.lastStatus);
         telemetry.update();
         try {
             initAprilTag();
@@ -337,6 +338,7 @@ public class MainTeleop extends OpMode {
         }
         telemetryM.addData("=== POSITION ===",  "");
         telemetryM.addData("Start Pose Source", startPoseSource);
+        telemetryM.addData("Pose Load Status", PoseStorage.lastStatus);
         telemetryM.addData("Robot rx",  rx);
         telemetryM.addData("Robot ry ", ry);
         telemetryM.addData("Turret Target Pos", turretMotor.getTargetPosition());
@@ -376,6 +378,7 @@ public class MainTeleop extends OpMode {
         }
         telemetry.addData("=== POSITION ===",  "");
         telemetry.addData("Start Pose Source", startPoseSource);
+        telemetry.addData("Pose Load Status", PoseStorage.lastStatus);
         telemetry.addData("Robot",             "(%.1f, %.1f)", rx, ry);
         telemetry.addData("Turret Tick Limits","[%d, %d]",   TURRET_TICK_MIN, TURRET_TICK_MAX);
         telemetry.addData("Turret Target Pos", turretMotor.getTargetPosition());
