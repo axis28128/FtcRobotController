@@ -12,6 +12,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
+import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -37,12 +38,14 @@ public class MainTeleop extends OpMode {
     public static double BALL_DETECT_THRESHOLD = 65; // between ball (~40) and gap (~100)
     public static int BALL_DETECT_CONSECUTIVE = 3;    // readings needed to confirm
     private int FarReadingStreak = 0;
-    public static double SHOOT_ADVANCE_MS_FAST = 150, SHOOT_ADVANCE_MS_SORTING = 1000; // tune this — time between each ball feed
+    public static double SHOOT_ADVANCE_MS_FAST = 350, SHOOT_ADVANCE_MS_SORTING = 1000; // tune this — time between each ball feed
     private double nextShootAdvanceTime = 0;
-    public static double SHOOTER_POS_FAR = 0, SHOOTER_POS_CLOSE = 1;
+    public static double SHOOTER_POS_FAR = 0.7, SHOOTER_POS_CLOSE = 0.3;
+    public boolean sorting = true, globalSorting = true;
     private Follower follower;
     public static Pose startingPose;
     public TelemetryManager telemetryM;
+    public int trackingTarget = 1;
 
     // === DRIVE FEEL TUNING (live-tunable in Panels) ===
     // Translation gets priority: rotation is capped to the wheel budget left over
@@ -51,8 +54,8 @@ public class MainTeleop extends OpMode {
     public static double DRIVE_MIN_TURN = 0.2;
 
     // NEW:
-    public static double GOAL_RPM_FAR = 3200, GOAL_RPM_CLOSE = 2800, currentTPS = GOAL_RPM_CLOSE;
-    public static double GOAL_MIN_CLOSE_RPM = 2500;
+    public static double GOAL_RPM_FAR = 3200, GOAL_RPM_CLOSE = 2750, currentTPS = GOAL_RPM_CLOSE;
+    public static double GOAL_MIN_CLOSE_RPM = 2600, GOAL_MIN_FAR_RPM = 3100;
     private boolean shootingFar = true; // tracks which preset is active, so we know which kV to use
     public static double TURRET_TPR = 873;
     public static double TURRET_TICkSFar_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
@@ -67,7 +70,7 @@ public class MainTeleop extends OpMode {
     public static int TURRET_TICK_MIN = -390;
     public static int TURRET_TICK_MAX = 500;
     // === SHOOTER PIDF TUNING ===
-    public static double kVFar = 0.000269, kVClose = 0.000278;  // volts (power) per RPM — main feedforward term
+    public static double kVFar = 0.00029, kVClose = 0.000278;  // volts (power) per RPM — main feedforward term
     public static double kSFar = 0.043;     // static friction/minimum power to overcome stiction
     public static double kPFar = 0.025;   // proportional correction for RPM error 3200
     //just need to change goalRPM values between 3200 and 2700 for close and far shooting, also kV value for both. also write correct equation for the PIDF loop.
@@ -106,6 +109,9 @@ public class MainTeleop extends OpMode {
     private double distRatioDebug = 0;
 
     public double[] spindexerPos = {0.31, 0.55, 0.8, 0.62, 0.36, 0.14};
+    public char[] spindexerColor = {'P', 'P', 'G'};
+    public String[] patterns = {"GPP", "PGP", "PPG"};
+    public int patternIdx = 0, obj = 1;
 
     // BUG FIX #1: lastMeasuredDistance is now only updated inside the timed block,
     // not again at the bottom of loop(). This ensures the ball-detect comparison
@@ -113,8 +119,8 @@ public class MainTeleop extends OpMode {
     public double lastMeasuredDistance = 0, measuredDistance = 0;
 
     private double timerTarget = 0;
-    private final double deltaDistanceSensorReadingsMillis = 120;
-    public int spinidx = 0;
+    private final double deltaDistanceSensorReadingsMillis = 170;
+    public int spinidx = 0, shotBalls = 0;
     public boolean ballWasDetected = false;
 
     // TrackSFar whether PIDF needs to be re-applied (only on change, not every frame).
@@ -148,9 +154,6 @@ public class MainTeleop extends OpMode {
         follower = Constants.createFollower(hardwareMap);
         follower.setStartingPose(startingPose);
         follower.update();
-
-        // Start the turret camera. If the webcam is missing/misconfigured we swallow the
-        // error and leave aprilTag null so the turret simply falls back to odometry aiming.
         try {
             initAprilTag();
         } catch (Exception e) {
@@ -173,96 +176,103 @@ public class MainTeleop extends OpMode {
     public void loop() {
         follower.update();
         telemetryM.update();
-
-        // Once the camera is streaming, pin exposure low to limit motion blur (the turret
-        // moves while tracking). Spread across loops so nothing blocks the control cycle.
         if (USE_MANUAL_EXPOSURE && !cameraExposureSet && visionPortal != null
                 && visionPortal.getCameraState() == VisionPortal.CameraState.STREAMING) {
             setManualExposure(CAMERA_EXPOSURE_MS, CAMERA_GAIN);
         }
-
-        // Does the camera currently see the RED goal tag? null -> fall back to odometry.
         AprilTagDetection goalTag = getRedGoalDetection();
-
         double gearRatio = (double) 10 / 16;
         double RPM = (((-shooterMotor.getVelocity()) / 28) * 60) * gearRatio;
-
-        // NEW:
-        double kV = shootingFar ? kVFar : kVClose;   // feedforward term matches the active goal RPM
+        double kV = shootingFar ? kVFar : kVClose;
         double ff = kSFar + (kV * currentTPS);
         double error = currentTPS - RPM;
         double feedback = kPFar * error;
         double pwr = Math.max(0, ff + feedback);
-
-        // === DISTANCE SENSOR (timed) ===
-        // BUG FIX #1: lastMeasuredDistance is captured here and ONLY here,
-        // so the ball-detect comparison below sees two genuinely different readings.
         measuredDistance = spindexDistance.getDistance(DistanceUnit.MM);
-        isShooting = RPM >= GOAL_MIN_CLOSE_RPM;
-
-        // === SHOOTER / TRANSFER ===
+        if(shootingFar) isShooting = (RPM >= GOAL_MIN_FAR_RPM);
+        else isShooting = (RPM >= GOAL_MIN_CLOSE_RPM);
         if (gamepad1.left_bumper) {
             shooterMotor.setPower(pwr);
             transferMotor.setPower(0.8);
-            // Camera-first turret aiming: use the webcam when it sees the RED goal tag,
-            // otherwise fall back to the odometry-based aim.
             if (goalTag != null) {
                 aimTurretFromCamera(goalTag);
             } else {
-                aimTurretFromOdometry();
+                aimTurretFromOdometry(obj);
             }
-            transfer(true);
+            if((nextShootAdvanceTime - currentTimer.milliseconds()) <= SHOOT_ADVANCE_MS_SORTING/2 && globalSorting) {
+                transfer(true);
+            } else if(nextShootAdvanceTime - currentTimer.milliseconds() > SHOOT_ADVANCE_MS_SORTING / 2 && globalSorting) transfer(false);
+            if(!globalSorting) transfer(!globalSorting);
             if (isShooting) {
-                if (currentTimer.milliseconds() >= nextShootAdvanceTime && spinidx < 5) {
-                    spinidx++;
+                if (currentTimer.milliseconds() >= nextShootAdvanceTime && spinidx < 5 && !globalSorting) {
+                    transfer(true);
+                    spinidx++; spinidx %= 6; spinidx = Math.max(3, spinidx);
+                    shotBalls++;
                     nextShootAdvanceTime = currentTimer.milliseconds() + SHOOT_ADVANCE_MS_FAST;
+                } else
+                if(currentTimer.milliseconds() >= nextShootAdvanceTime && sorting && shotBalls < 3 && globalSorting) {
+                    char neededBall = patterns[patternIdx].charAt(shotBalls);
+                    if(neededBall == spindexerColor[0]) {
+                        spinidx = 5;
+                        spindexerColor[0] = 'X';
+                    } else if(neededBall == spindexerColor[1]) {
+                        spinidx = 4;
+                        spindexerColor[1] = 'X';
+                    } else if(neededBall == spindexerColor[2]) {
+                        spinidx = 3;
+                        spindexerColor[2] = 'X';
+                    } else {
+                        sorting = false;
+                        spinidx = 3;
+                    }
+                    shotBalls++;
+                    nextShootAdvanceTime = currentTimer.milliseconds() + SHOOT_ADVANCE_MS_SORTING;
                 }
+
+
             }
         } else {
+            sorting = true;
+            shotBalls = 0;
             shooterMotor.setPower(0);
             transferMotor.setPower(0);
             transfer(false);
-            // Reset for next shooting sequence
             if (spinidx > 3) spinidx = 0;
-            nextShootAdvanceTime = 0;
+            nextShootAdvanceTime = globalSorting ? SHOOT_ADVANCE_MS_SORTING : SHOOT_ADVANCE_MS_FAST;
         }
-
-
-        // Reset spindexer when bumper released and motor has spun down.
         if (!gamepad1.left_bumper && isShooting) spinidx = 0;
-
-        // === INTAKE ===
-        // BUG FIX #7: Intake check now happens AFTER spinidx may have been set to 3
-        // above, so the "don't intake while shooting" gate is evaluated correctly.
         if (gamepad1.right_bumper && spinidx != 3) {
             intake.setPower(-1);
         } else if (gamepad1.y) {
-            intake.setPower(0.5);
+            intake.setPower(0.8);
         } else {
             intake.setPower(0);
         }
-
-        // === SPINDEXER MANUAL / AUTO ADVANCE ===
         if (gamepad1.dpadRightWasPressed())      spinidx++;
         else if (gamepad1.dpadLeftWasPressed())  spinidx--;
-
         boolean readingIsFar = measuredDistance <= BALL_DETECT_THRESHOLD;
-
         if (readingIsFar) {
             FarReadingStreak++;
         } else {
             FarReadingStreak = 0;
         }
-
+        boolean currentBallGreen = false;
         boolean ballNearNow = FarReadingStreak >= BALL_DETECT_CONSECUTIVE;
-
         if (ballNearNow && !ballWasDetected && !gamepad1.left_bumper && spinidx < 2) {
+            NormalizedRGBA colors = colorSensor.getNormalizedColors();
+            if(Math.max(colors.green, Math.max(colors.blue, colors.red)) == colors.green) currentBallGreen = true;
+            spindexerColor[spinidx] = (currentBallGreen ? 'G' : 'P');
             spinidx++;
+        } else if(ballNearNow && !ballWasDetected && !gamepad1.left_bumper && spinidx < 3) {
+            NormalizedRGBA colors = colorSensor.getNormalizedColors();
+            if(Math.max(colors.green, Math.max(colors.red, colors.blue)) == colors.green) currentBallGreen = true;
+            spindexerColor[spinidx] = (currentBallGreen ? 'G' : 'P');
         }
         ballWasDetected = ballNearNow;
         if (spinidx > 6) spinidx = 0;
         if (spinidx < 0) spinidx = 0;
         spindexerServo.setPosition(spindexerPos[spinidx]);
+
 
         // === DRIVE ===
         // Translation-priority mixing: stickSFar pass through at full power, and the
@@ -288,7 +298,8 @@ public class MainTeleop extends OpMode {
             currentTPS = shootingFar ? GOAL_RPM_FAR : GOAL_RPM_CLOSE;
             shooterServo.setPosition(shootingFar ? SHOOTER_POS_FAR : SHOOTER_POS_CLOSE);
         }
-
+        if(gamepad1.startWasPressed()) patternIdx = (patternIdx+1)%3;
+        if(gamepad1.backWasPressed()) globalSorting = !globalSorting;
         // === SHOOTER SERVO ANGLE ===
         if (gamepad1.dpad_up) {
             shooterServo.setPosition(shooterServo.getPosition() + 0.05);
@@ -329,6 +340,13 @@ public class MainTeleop extends OpMode {
         telemetryM.addData("Turret Target Pos", turretMotor.getTargetPosition());
         telemetryM.addData("=== PIDF ===",      "");
         telemetryM.update();
+
+        telemetry.addLine("Spindexer & Patterns");
+        telemetry.addData("Spindexer Position 1: ", spindexerColor[0]);
+        telemetry.addData("Spindexer Position 2: ", spindexerColor[1]);
+        telemetry.addData("Spindexer Position 3: ", spindexerColor[2]);
+        telemetry.addData("Pattern Shooting: ", patterns[patternIdx]);
+        telemetry.addData("Sorting: ", globalSorting);
         telemetry.addData("Shot Preset", shootingFar ? "FAR (3200)" : "CLOSE (2700)");
         telemetry.addData("Active kV", "%.6f", kV);
         telemetry.addData("Meas Dist",         measuredDistance);
@@ -361,9 +379,6 @@ public class MainTeleop extends OpMode {
         telemetry.addData("=== PIDF ===",      "");
         telemetry.update();
     }
-
-    // === HELPERS ===
-
     public void transfer(boolean shouldTransfer) {
         bootKickerServo.setPosition(shouldTransfer ? 0.2 : 0);
     }
@@ -419,10 +434,6 @@ public class MainTeleop extends OpMode {
     public double getTurretAngle() {
         return turretMotor.getCurrentPosition() / TURRET_TICkSFar_PER_RADIAN;
     }
-
-    // === VISION HELPERS ===
-
-    /** Build the AprilTag processor + VisionPortal for the turret-mounted C920. */
     private void initAprilTag() {
         aprilTag = new AprilTagProcessor.Builder()
                 .build();
@@ -435,8 +446,6 @@ public class MainTeleop extends OpMode {
                 .addProcessor(aprilTag)
                 .build();
     }
-
-    /** Returns the RED goal (ID 24) detection if the camera currently sees it, else null. */
     private AprilTagDetection getRedGoalDetection() {
         if (aprilTag == null) return null;
         List<AprilTagDetection> detections = aprilTag.getDetections();
@@ -447,10 +456,13 @@ public class MainTeleop extends OpMode {
         }
         return null;
     }
-
-    /** Existing behaviour: point the turret at the goal using the odometry pose. */
-    private void aimTurretFromOdometry() {
-        double angleToGoal  = Math.atan2(140 - follower.getPose().getY(), -follower.getPose().getX());
+    private void aimTurretFromOdometry(int object) {
+        double angleToGoal = 0;
+        //object 1 is blue goal, object 2 is red goal, object 3 is obelisk, object 4 is common goal
+        if(object == 1) angleToGoal  = Math.atan2(144 - follower.getPose().getY(), -follower.getPose().getX());
+        else if(object == 2) angleToGoal = Math.atan2(144 - follower.getPose().getY(), 144-follower.getPose().getX());
+        else if(object == 3) angleToGoal = Math.atan2(144 - follower.getPose().getY(), 72-follower.getPose().getX());
+        else if(object == 4) angleToGoal = Math.atan2(follower.getPose().getY()+144, 72-follower.getPose().getX());
         double turretTarget = angleToGoal - follower.getPose().getHeading();
         setTurretAngle(turretTarget, TURRET_PWR);
         turretUsingCamera = false;
