@@ -31,7 +31,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-@TeleOp(name = "Main Teleop Mode")
+@TeleOp(name = "Debug Teleop Mode")
 @Configurable
 public class MainTeleop extends OpMode {
     // Add fields
@@ -80,7 +80,7 @@ public class MainTeleop extends OpMode {
     public NormalizedColorSensor colorSensor;
     public DistanceSensor spindexDistance;
     public static String  CAMERA_NAME         = "Webcam 1"; // must match the robot config name
-    public static int     RED_GOAL_TAG_ID     = 24;         // Decode "RedTarget"
+    public static int     RED_GOAL_TAG_ID     = 20;         // Decode "RedTarget"
     public static double  CAMERA_OFFSET_MM    = 87.25;       // camera is this far RIGHT of flywheel center
     public static double  CAMERA_AIM_GAIN     = 1.0;        // scales per-loop turret correction; lower (~0.6) if it hunts
     public static boolean USE_MANUAL_EXPOSURE = true;       // reduces motion blur while the turret moves
@@ -105,11 +105,10 @@ public class MainTeleop extends OpMode {
     public char[] spindexerColor = {'P', 'P', 'G'};
     public String[] patterns = {"GPP", "PGP", "PPG"};
     public static int patternIdx = 0, obj = 4;
+    public boolean trackingRed = false;
 
     public double lastMeasuredDistance = 0, measuredDistance = 0;
 
-    private double timerTarget = 0;
-    private final double deltaDistanceSensorReadingsMillis = 170;
     public int spinidx = 0, shotBalls = 0;
     public boolean ballWasDetected = false;
 
@@ -169,7 +168,6 @@ public class MainTeleop extends OpMode {
 
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
         currentTimer.reset();
-        timerTarget += deltaDistanceSensorReadingsMillis;
     }
 
     @Override
@@ -199,7 +197,7 @@ public class MainTeleop extends OpMode {
         if (gamepad1.left_bumper) {
             shooterMotor.setPower(pwr);
             transferMotor.setPower(0.8);
-            if (goalTag != null) {
+            if (goalTag != null && gamepad1.right_trigger != 0) {
                 aimTurretFromCamera(goalTag);
             } else {
                 aimTurretFromOdometry(obj);
@@ -465,7 +463,7 @@ public class MainTeleop extends OpMode {
     private void aimTurretFromOdometry(int object) {
         double angleToGoal = 0;
         //object 1 is blue goal, object 2 is red goal, object 3 is obelisk, object 4 is common goal
-        if(object == 1) angleToGoal  = Math.atan2(144 - follower.getPose().getY(), -follower.getPose().getX());
+        if(object == 1) angleToGoal  = Math.atan2(140 - follower.getPose().getY(), -follower.getPose().getX());
         else if(object == 2) angleToGoal = Math.atan2(144 - follower.getPose().getY(), 144-follower.getPose().getX());
         else if(object == 3) angleToGoal = Math.atan2(144 - follower.getPose().getY(), 72-follower.getPose().getX());
         else if(object == 4) angleToGoal = Math.atan2(-follower.getPose().getY() - 144, 72-follower.getPose().getX());
