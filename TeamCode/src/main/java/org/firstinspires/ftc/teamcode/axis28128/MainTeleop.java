@@ -31,7 +31,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-@TeleOp(name = "Main Teleop Mode")
+@TeleOp(name = "Debug Teleop Mode")
 @Configurable
 public class MainTeleop extends OpMode {
     // Add fields
@@ -41,21 +41,19 @@ public class MainTeleop extends OpMode {
     public static double SHOOT_ADVANCE_MS_FAST = 350, SHOOT_ADVANCE_MS_SORTING = 1000; // tune this — time between each ball feed
     private double nextShootAdvanceTime = 0;
     public static double SHOOTER_POS_FAR = 0.7, SHOOTER_POS_CLOSE = 0.3;
-    public boolean sorting = true, globalSorting = true;
+    public boolean sorting = true, globalSorting = false;
     private Follower follower;
     public static Pose startingPose;
     // Used when no autonomous ran just before this teleop (e.g. teleop-only match):
     // park the robot in this corner before starting. Tune to wherever you actually place it.
-    public static Pose NO_AUTO_FALLBACK_POSE = new Pose(8, 8, Math.toRadians(90));
+    public static Pose NO_AUTO_FALLBACK_POSE = new Pose(80, 8, Math.toRadians(180));
     private String startPoseSource = "?";
     public TelemetryManager telemetryM;
-    public int trackingTarget = 1;
-    public static double DRIVE_MIN_TURN = 0.2;
 
     // NEW:
     public static double GOAL_RPM_FAR = 3200, GOAL_RPM_CLOSE = 2750, currentTPS = GOAL_RPM_CLOSE;
     public static double GOAL_MIN_CLOSE_RPM = 2600, GOAL_MIN_FAR_RPM = 3100;
-    private boolean shootingFar = true; // tracks which preset is active, so we know which kV to use
+    public static boolean shootingFar = false; // tracks which preset is active, so we know which kV to use
     public static double TURRET_TPR = 873;
     public static double TURRET_TICkSFar_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
     public static double TURRET_PWR = 0.3;
@@ -80,7 +78,7 @@ public class MainTeleop extends OpMode {
     public NormalizedColorSensor colorSensor;
     public DistanceSensor spindexDistance;
     public static String  CAMERA_NAME         = "Webcam 1"; // must match the robot config name
-    public static int     RED_GOAL_TAG_ID     = 24;         // Decode "RedTarget"
+    public static int     RED_GOAL_TAG_ID     = 20;         // Decode "RedTarget"
     public static double  CAMERA_OFFSET_MM    = 87.25;       // camera is this far RIGHT of flywheel center
     public static double  CAMERA_AIM_GAIN     = 1.0;        // scales per-loop turret correction; lower (~0.6) if it hunts
     public static boolean USE_MANUAL_EXPOSURE = true;       // reduces motion blur while the turret moves
@@ -105,11 +103,9 @@ public class MainTeleop extends OpMode {
     public char[] spindexerColor = {'P', 'P', 'G'};
     public String[] patterns = {"GPP", "PGP", "PPG"};
     public static int patternIdx = 0, obj = 4;
-
+    public boolean trackingRed = false;
     public double lastMeasuredDistance = 0, measuredDistance = 0;
 
-    private double timerTarget = 0;
-    private final double deltaDistanceSensorReadingsMillis = 170;
     public int spinidx = 0, shotBalls = 0;
     public boolean ballWasDetected = false;
 
@@ -169,7 +165,6 @@ public class MainTeleop extends OpMode {
 
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
         currentTimer.reset();
-        timerTarget += deltaDistanceSensorReadingsMillis;
     }
 
     @Override
@@ -199,7 +194,7 @@ public class MainTeleop extends OpMode {
         if (gamepad1.left_bumper) {
             shooterMotor.setPower(pwr);
             transferMotor.setPower(0.8);
-            if (goalTag != null) {
+            if (goalTag != null && gamepad1.right_trigger != 0) {
                 aimTurretFromCamera(goalTag);
             } else {
                 aimTurretFromOdometry(obj);
@@ -467,10 +462,10 @@ public class MainTeleop extends OpMode {
     private void aimTurretFromOdometry(int object) {
         double angleToGoal = 0;
         //object 1 is blue goal, object 2 is red goal, object 3 is obelisk, object 4 is common goal
-        if(object == 1) angleToGoal  = Math.atan2(144 - follower.getPose().getY(), -follower.getPose().getX());
+        if(object == 1) angleToGoal  = Math.atan2(140 - follower.getPose().getY(), -follower.getPose().getX());
         else if(object == 2) angleToGoal = Math.atan2(144 - follower.getPose().getY(), 144-follower.getPose().getX());
         else if(object == 3) angleToGoal = Math.atan2(144 - follower.getPose().getY(), 72-follower.getPose().getX());
-        else if(object == 4) angleToGoal = Math.atan2(follower.getPose().getY()+144, 72-follower.getPose().getX());
+        else if(object == 4) angleToGoal = Math.atan2(-follower.getPose().getY() - 144, 72-follower.getPose().getX());
         double turretTarget = angleToGoal - follower.getPose().getHeading();
         setTurretAngle(turretTarget, TURRET_PWR);
         turretUsingCamera = false;
