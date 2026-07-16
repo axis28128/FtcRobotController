@@ -110,7 +110,7 @@ public class CloseRedTest extends OpMode {
 
     public double[] spindexerPos = {0.31, 0.55, 0.8, 0.62, 0.36, 0.14};
     public double measuredDistance = 0;
-    public int spinidx = 0, shotBalls = 0;
+    public int spinidx = 0, shotBalls = 0, intakedBalls = 3;
     public boolean ballWasDetected = false;
 
     @Override
@@ -369,6 +369,7 @@ public class CloseRedTest extends OpMode {
             case SHOOT_STOP: {
                 if(!follower.isBusy()) {
                     stopShooting();
+                    intakedBalls = 0;
                     if(middleTaken) setPathState(PathState.SHOOT_POS_GATE_INTAKE);
                     else setPathState(PathState.SHOOT_POS_MIDDLE_THREE);
                     intake();
@@ -382,6 +383,7 @@ public class CloseRedTest extends OpMode {
                     setPathState(PathState.MIDDLE_THREE_SHOOT_POS);
                     middleTaken = true;
                 }
+                if(intakedBalls >= 3) stopIntake();
                 break;
             }
             case SHOOT_POS_GATE_INTAKE: {
@@ -422,8 +424,7 @@ public class CloseRedTest extends OpMode {
         pathTimer.resetTimer();
     }
     public void intake() {
-        double currentDistance = spindexDistance.getDistance(DistanceUnit.MM);
-        //INTAKE LOGIC FROM TELEOP, CONVERT
+        //INTAKE LOGIC FROM TELEOP, CONVERT (and more)
         intake.setPower(-1);
         boolean readingIsFar = measuredDistance <= BALL_DETECT_THRESHOLD;
         if (readingIsFar) {
@@ -432,7 +433,11 @@ public class CloseRedTest extends OpMode {
             FarReadingStreak = 0;
         }
         boolean ballNearNow = FarReadingStreak >= BALL_DETECT_CONSECUTIVE;
-        if (ballNearNow && !ballWasDetected && spinidx < 2) spinidx++;
+        if (ballNearNow && !ballWasDetected && spinidx < 2) {
+            spinidx++;
+            intakedBalls++;
+        }
+        else if(ballNearNow && !ballWasDetected) intakedBalls++;
         ballWasDetected = ballNearNow;
         if (spinidx > 6) spinidx = 0;
         if (spinidx < 0) spinidx = 0;
