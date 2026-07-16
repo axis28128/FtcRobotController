@@ -41,7 +41,7 @@ public class MainTeleop extends OpMode {
     public static double SHOOT_ADVANCE_MS_FAST = 350, SHOOT_ADVANCE_MS_SORTING = 1000; // tune this — time between each ball feed
     private double nextShootAdvanceTime = 0;
     public static double SHOOTER_POS_FAR = 0.7, SHOOTER_POS_CLOSE = 0.3;
-    public boolean sorting = true, globalSorting = true;
+    public boolean sorting = true, globalSorting = false;
     private Follower follower;
     public static Pose startingPose;
     // Used when no autonomous ran just before this teleop (e.g. teleop-only match):
@@ -49,13 +49,11 @@ public class MainTeleop extends OpMode {
     public static Pose NO_AUTO_FALLBACK_POSE = new Pose(80, 8, Math.toRadians(180));
     private String startPoseSource = "?";
     public TelemetryManager telemetryM;
-    public int trackingTarget = 1;
-    public static double DRIVE_MIN_TURN = 0.2;
 
     // NEW:
     public static double GOAL_RPM_FAR = 3200, GOAL_RPM_CLOSE = 2750, currentTPS = GOAL_RPM_CLOSE;
     public static double GOAL_MIN_CLOSE_RPM = 2600, GOAL_MIN_FAR_RPM = 3100;
-    private boolean shootingFar = true; // tracks which preset is active, so we know which kV to use
+    public static boolean shootingFar = false; // tracks which preset is active, so we know which kV to use
     public static double TURRET_TPR = 873;
     public static double TURRET_TICkSFar_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
     public static double TURRET_PWR = 0.3;
@@ -106,7 +104,6 @@ public class MainTeleop extends OpMode {
     public String[] patterns = {"GPP", "PGP", "PPG"};
     public static int patternIdx = 0, obj = 4;
     public boolean trackingRed = false;
-
     public double lastMeasuredDistance = 0, measuredDistance = 0;
 
     public int spinidx = 0, shotBalls = 0;
