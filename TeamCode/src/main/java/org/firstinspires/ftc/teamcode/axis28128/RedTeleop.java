@@ -295,7 +295,7 @@ public class RedTeleop extends OpMode {
             shooterServo.setPosition(shootingFar ? SHOOTER_POS_FAR : SHOOTER_POS_CLOSE);
         }
         if(gamepad1.startWasPressed()) patternIdx = (patternIdx+1)%3;
-        if(gamepad1.backWasPressed()) obj = (obj == 4) ? 1 : 4;
+        if(gamepad1.backWasPressed()) obj = (obj == 4) ? 2 : 4;
         // === SHOOTER SERVO ANGLE ===
         if (gamepad1.dpad_up) {
             shooterServo.setPosition(shooterServo.getPosition() + 0.05);

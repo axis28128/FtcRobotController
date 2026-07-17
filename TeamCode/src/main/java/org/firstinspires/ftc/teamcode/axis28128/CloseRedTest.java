@@ -282,6 +282,7 @@ public class CloseRedTest extends OpMode {
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
+                .setVelocityConstraint(0.25)
                 .build();
         thirdchain = follower.pathBuilder()
                 .addPath(
