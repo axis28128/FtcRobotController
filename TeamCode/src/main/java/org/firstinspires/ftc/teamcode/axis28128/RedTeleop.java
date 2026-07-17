@@ -2,22 +2,22 @@ package org.firstinspires.ftc.teamcode.axis28128;
 
 import static java.lang.Math.sqrt;
 
+import android.util.Size;
+
 import com.bylazar.configurables.annotations.Configurable;
 import com.bylazar.telemetry.PanelsTelemetry;
 import com.bylazar.telemetry.TelemetryManager;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
-
-import android.util.Size;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.controls.ExposureControl;
@@ -31,21 +31,20 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-@TeleOp(name = "Debug Teleop Mode")
+@TeleOp(name = "Red Teleop Mode")
 @Configurable
-public class MainTeleop extends OpMode {
+public class RedTeleop extends OpMode {
     // Add fields
     public static double BALL_DETECT_THRESHOLD = 65; // between ball (~40) and gap (~100)
     public static int BALL_DETECT_CONSECUTIVE = 3;    // readings needed to confirm
     private int FarReadingStreak = 0;
     public static double SHOOT_ADVANCE_MS_FAST = 350, SHOOT_ADVANCE_MS_SORTING = 1000; // tune this — time between each ball feed
     private double nextShootAdvanceTime = 0;
-    public static double SHOOTER_POS_FAR = 0.7, SHOOTER_POS_CLOSE = 0.3;
-    public boolean sorting = true, globalSorting = false;
+    public static double SHOOTER_POS_FAR = 0.6, SHOOTER_POS_CLOSE = 0.3;
+    public boolean sorting = false, globalSorting = false;
     private Follower follower;
     public static Pose startingPose;
     // Used when no autonomous ran just before this teleop (e.g. teleop-only match):
-    // park the robot in this corner before starting. Tune to wherever you actually place it.
     public static Pose NO_AUTO_FALLBACK_POSE = new Pose(80, 8, Math.toRadians(180));
     private String startPoseSource = "?";
     public TelemetryManager telemetryM;
@@ -99,7 +98,7 @@ public class MainTeleop extends OpMode {
     private double currentDistance = 0;
     private double distRatioDebug = 0;
 
-    public double[] spindexerPos = {0.31, 0.55, 0.8, 0.62, 0.36, 0.14};
+    public double[] spindexerPos = {0.29, 0.54, 0.78, 0.6, 0.36, 0.12};
     public char[] spindexerColor = {'P', 'P', 'G'};
     public String[] patterns = {"GPP", "PGP", "PPG"};
     public static int patternIdx = 0, obj = 4;
@@ -137,7 +136,7 @@ public class MainTeleop extends OpMode {
         // Pick up the pose the autonomous saved at the end of its 30 seconds (and consume
         // the file so it doesn't leak into a later back-to-back teleop). If there's no
         // file, no auto ran before this teleop, so fall back to the hardcoded corner pose.
-
+        // Fully automatic — no driver input needed.
         Pose autoEndPose = PoseStorage.loadAndClear();
         if (autoEndPose != null) {
             startingPose = autoEndPose;
@@ -211,24 +210,22 @@ public class MainTeleop extends OpMode {
                     nextShootAdvanceTime = currentTimer.milliseconds() + SHOOT_ADVANCE_MS_FAST;
                 } else
                 if(currentTimer.milliseconds() >= nextShootAdvanceTime && sorting && shotBalls < 3 && globalSorting) {
-                    double advanceInterval;
-                    if (shotBalls == 0) {
-                        // One rotation straight to whichever slot holds the pattern's first
-                        // ball. The other two follow via the same adjacent stepping the
-                        // unsorted fast path uses (spinidx 3->4->5 wrapping), so after this
-                        // single jump the rest of the sequence is one continuous fast motion.
-                        char firstNeeded = patterns[patternIdx].charAt(0);
-                        if (spindexerColor[2] == firstNeeded)      spinidx = 3;
-                        else if (spindexerColor[1] == firstNeeded) spinidx = 4;
-                        else if (spindexerColor[0] == firstNeeded) spinidx = 5;
-                        else { sorting = false; spinidx = 3; }
-                        advanceInterval = SHOOT_ADVANCE_MS_SORTING;
+                    char neededBall = patterns[patternIdx].charAt(shotBalls);
+                    if(neededBall == spindexerColor[0]) {
+                        spinidx = 5;
+                        spindexerColor[0] = 'X';
+                    } else if(neededBall == spindexerColor[1]) {
+                        spinidx = 4;
+                        spindexerColor[1] = 'X';
+                    } else if(neededBall == spindexerColor[2]) {
+                        spinidx = 3;
+                        spindexerColor[2] = 'X';
                     } else {
-                        spinidx++; spinidx %= 6; spinidx = Math.max(3, spinidx);
-                        advanceInterval = SHOOT_ADVANCE_MS_FAST;
+                        sorting = false;
+                        spinidx = 3;
                     }
                     shotBalls++;
-                    nextShootAdvanceTime = currentTimer.milliseconds() + advanceInterval;
+                    nextShootAdvanceTime = currentTimer.milliseconds() + SHOOT_ADVANCE_MS_SORTING;
                 }
 
 
@@ -298,7 +295,7 @@ public class MainTeleop extends OpMode {
             shooterServo.setPosition(shootingFar ? SHOOTER_POS_FAR : SHOOTER_POS_CLOSE);
         }
         if(gamepad1.startWasPressed()) patternIdx = (patternIdx+1)%3;
-        if(gamepad1.backWasPressed()) globalSorting = !globalSorting;
+        if(gamepad1.backWasPressed()) obj = (obj == 4) ? 1 : 4;
         // === SHOOTER SERVO ANGLE ===
         if (gamepad1.dpad_up) {
             shooterServo.setPosition(shooterServo.getPosition() + 0.05);
