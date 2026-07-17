@@ -249,7 +249,7 @@ public class CloseRedTest extends OpMode {
         double angleToGoal = 0;
         //object 1 is blue goal, object 2 is red goal, object 3 is obelisk, object 4 is common goal
         if(object == 1) angleToGoal  = Math.atan2(144 - follower.getPose().getY(), -follower.getPose().getX());
-        else if(object == 2) angleToGoal = Math.atan2(144 - follower.getPose().getY(), 144-follower.getPose().getX());
+        else if(object == 2) angleToGoal = Math.atan2(125 - follower.getPose().getY(), 125 - follower.getPose().getX());
         else if(object == 3) angleToGoal = Math.atan2(144 - follower.getPose().getY(), 72-follower.getPose().getX());
         else if(object == 4) angleToGoal = Math.atan2(-follower.getPose().getY() - 144, 72-follower.getPose().getX());
         double turretTarget = angleToGoal - follower.getPose().getHeading();
