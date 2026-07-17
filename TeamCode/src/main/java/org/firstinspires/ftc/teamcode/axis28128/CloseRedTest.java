@@ -110,7 +110,7 @@ public class CloseRedTest extends OpMode {
     private boolean isShooting = false;
     private static ElapsedTime currentTimer = new ElapsedTime();
 
-    public double[] spindexerPos = {0.24, 0.49, 0.72, 0.55, 0.29, 0.06};
+    public double[] spindexerPos = {0.2, 0.44, 0.68, 0.51, 0.25, 0.02};
     public double measuredDistance = 0;
     public int spinidx = 2, shotBalls = 0, intakedBalls = 3;
     public boolean ballWasDetected = false;
