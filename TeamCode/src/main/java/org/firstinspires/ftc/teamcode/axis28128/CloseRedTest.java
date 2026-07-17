@@ -166,7 +166,18 @@ public class CloseRedTest extends OpMode {
         follower.update();
         telemetryM.update();
         telemetry.update();
-        statePathUpdate();
+        if(30 - opModeTimer.getElapsedTimeSeconds() >= 5) {
+            PathChain lastChain = follower.pathBuilder()
+                    .addPath(
+                            new BezierLine(
+                                    follower.getPose(),
+                                    new Pose(80, 100)
+                            )
+                    )
+                    .setConstantHeadingInterpolation(Math.toRadians(180))
+                    .build();
+        }
+        else statePathUpdate();
     }
     public void transfer(boolean shouldTransfer) {
         bootKickerServo.setPosition(shouldTransfer ? 0.2 : 0);

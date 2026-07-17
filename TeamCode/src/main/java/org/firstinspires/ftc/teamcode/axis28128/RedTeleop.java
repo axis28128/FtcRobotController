@@ -45,7 +45,7 @@ public class RedTeleop extends OpMode {
     private Follower follower;
     public static Pose startingPose;
     // Used when no autonomous ran just before this teleop (e.g. teleop-only match):
-    public static Pose NO_AUTO_FALLBACK_POSE = new Pose(80, 8, Math.toRadians(180));
+    public static Pose NO_AUTO_FALLBACK_POSE = new Pose(80, 100, Math.toRadians(180));
     private String startPoseSource = "?";
     public TelemetryManager telemetryM;
 
