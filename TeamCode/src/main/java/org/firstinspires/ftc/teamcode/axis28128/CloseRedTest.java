@@ -71,6 +71,7 @@ public class CloseRedTest extends OpMode {
     public static double TURRET_TICkSFar_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
     public static double TURRET_PWR = 0.3;
 
+
     public static double TURRET_ANGLE_SIGN = 1;
     public static double TURRET_ANGLE_OFFSET = ( Math.PI / 6 ) + ( Math.PI / 18) + (Math.PI / 36);
 
@@ -177,6 +178,9 @@ public class CloseRedTest extends OpMode {
                     .setConstantHeadingInterpolation(Math.toRadians(180))
                     .build();
             follower.followPath(lastChain);
+            turretMotor.setTargetPosition(0);
+            turretMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            turretMotor.setPower(0.3);
         }
         else statePathUpdate();
     }
