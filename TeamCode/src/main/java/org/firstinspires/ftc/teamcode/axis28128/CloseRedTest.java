@@ -299,16 +299,16 @@ public class CloseRedTest extends OpMode {
                         new BezierCurve(
                                 new Pose(82.404, 83.630),
                                 new Pose(85.494, 56.421),
-                                new Pose(115.077, 57.882)
+                                new Pose(140.077, 57.882)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
-                .setVelocityConstraint(0.25)
+                .setVelocityConstraint(0.2)
                 .build();
         thirdchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(115.077, 57.882),
+                                new Pose(140.077, 57.882),
                                 new Pose(84.300, 105.531)
                         )
                 )
