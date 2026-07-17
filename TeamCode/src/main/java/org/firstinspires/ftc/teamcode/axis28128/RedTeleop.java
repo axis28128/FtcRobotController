@@ -98,7 +98,7 @@ public class RedTeleop extends OpMode {
     private double currentDistance = 0;
     private double distRatioDebug = 0;
 
-    public double[] spindexerPos = {0.29, 0.54, 0.78, 0.6, 0.36, 0.12};
+    public double[] spindexerPos = {0.24, 0.49, 0.72, 0.55, 0.29, 0.06};
     public char[] spindexerColor = {'P', 'P', 'G'};
     public String[] patterns = {"GPP", "PGP", "PPG"};
     public static int patternIdx = 0, obj = 4;
