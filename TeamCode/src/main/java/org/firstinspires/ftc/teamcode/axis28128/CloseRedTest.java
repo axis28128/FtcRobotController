@@ -290,27 +290,26 @@ public class CloseRedTest extends OpMode {
                 .addPath(
                         new BezierLine(
                                 new Pose(120.563, 121.422),
-                                new Pose(82.404, 83.630)
+                                new Pose(80.404, 100.630)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(216), Math.toRadians(0))
                 .build();
         secondchain = follower.pathBuilder()
                 .addPath(
-                        new BezierCurve(
-                                new Pose(82.404, 83.630),
-                                new Pose(85.494, 56.421),
-                                new Pose(120.077, 57.882)
+                        new BezierLine(
+                                new Pose(80.404, 100.630),
+                                new Pose(120, 57)
                         )
                 )
-                .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
+                .setTangentHeadingInterpolation()
                 .setVelocityConstraint(0.2)
                 .build();
         thirdchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(140.077, 57.882),
-                                new Pose(84.300, 105.531)
+                                new Pose(120.077, 57),
+                                new Pose(80.404, 100.630)
                         )
                 )
                 .setConstantHeadingInterpolation(Math.toRadians(0))
@@ -318,7 +317,7 @@ public class CloseRedTest extends OpMode {
         fourthchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(82.300, 83.531),
+                                new Pose(80.300, 100.531),
                                 new Pose(131, 56)
                         )
                 )
@@ -328,7 +327,7 @@ public class CloseRedTest extends OpMode {
                 .addPath(
                         new BezierLine(
                                 new Pose(131, 56),
-                                new Pose(84.542, 103.450)
+                                new Pose(80.542, 100.450)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(45), Math.toRadians(0))
@@ -336,7 +335,7 @@ public class CloseRedTest extends OpMode {
         sixthchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(82.300, 85.531),
+                                new Pose(80.300, 100),
                                 new Pose(129.574, 58.362)
                         )
                 )
@@ -346,7 +345,7 @@ public class CloseRedTest extends OpMode {
                 .addPath(
                         new BezierLine(
                                 new Pose(129.574, 58.362),
-                                new Pose(82.275, 83.461)
+                                new Pose(80, 100)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(30), Math.toRadians(0))
@@ -354,7 +353,7 @@ public class CloseRedTest extends OpMode {
         eighthchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(82.275, 83.461),
+                                new Pose(80, 100),
                                 new Pose(120, 80.852)
                         )
                 )
@@ -365,7 +364,7 @@ public class CloseRedTest extends OpMode {
                 .addPath(
                         new BezierLine(
                                 new Pose(120, 80.852),
-                                new Pose(84.177, 105.331)
+                                new Pose(80.177, 100.331)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
@@ -412,7 +411,7 @@ public class CloseRedTest extends OpMode {
                     intakedBalls = 0;
                     if(middleTaken) setPathState(PathState.SHOOT_POS_GATE_INTAKE);
                     else if(topTaken) setPathState(PathState.SHOOT_POS_TOP_THREE);
-                    else setPathState(PathState.SHOOT_POS_GATE_INTAKE);
+                    else {stopIntake(); stopShooting(); break;};
                     intake();
                     break;
                 }
@@ -424,6 +423,7 @@ public class CloseRedTest extends OpMode {
                     setPathState(PathState.TOP_THREE_SHOOT_POS);
                     topTaken = true;
                 }
+                break;
             }
             case SHOOT_POS_MIDDLE_THREE: {
                 if(!follower.isBusy()) {
@@ -466,6 +466,7 @@ public class CloseRedTest extends OpMode {
                     stopIntake();
                     setPathState(PathState.SHOOT_PRELOAD);
                 }
+                break;
             }
             default: {
                 telemetry.addLine("Not in an expected state.");
