@@ -203,7 +203,7 @@ public class RedTeleop extends OpMode {
             } else if(nextShootAdvanceTime - currentTimer.milliseconds() > SHOOT_ADVANCE_MS_SORTING / 2 && globalSorting) transfer(false);
             if(!globalSorting) transfer(!globalSorting);
             if (isShooting) {
-                if (currentTimer.milliseconds() >= nextShootAdvanceTime && spinidx < 5 && !globalSorting) {
+                if (currentTimer.milliseconds() >= nextShootAdvanceTime && spinidx < 6 && !globalSorting) {
                     transfer(true);
                     spinidx++; spinidx %= 6; spinidx = Math.max(3, spinidx);
                     shotBalls++;
