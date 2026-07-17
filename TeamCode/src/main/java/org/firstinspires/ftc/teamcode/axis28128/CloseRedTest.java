@@ -36,8 +36,7 @@ import java.util.concurrent.TimeUnit;
 public class CloseRedTest extends OpMode {
     public PathChain firstchain, secondchain, thirdchain, fourthchain, fifthchain, sixthchain, seventhchain, eighthchain, ninthchain;
     private static final Pose startingPose = new Pose(120, 121.4, Math.toRadians(216)); //VERY VERY IMPORTANT - STARTING POSE FOR THE AUTO
-    private static final Pose shootPose = new Pose(86.457, 105.480, 0);
-    public boolean middleTaken = false;
+    public boolean middleTaken = false, topTaken = false;
     public enum PathState {
         DRIVE_START_POS_SHOOT_POS,
         SHOOT_POS,
@@ -46,7 +45,9 @@ public class CloseRedTest extends OpMode {
         SHOOT_POS_GATE_INTAKE,
         GATE_INTAKE_SHOOT_POS,
         SHOOT_POS_MIDDLE_THREE,
-        MIDDLE_THREE_SHOOT_POS;
+        MIDDLE_THREE_SHOOT_POS,
+        SHOOT_POS_TOP_THREE,
+        TOP_THREE_SHOOT_POS;
 
     }
     public PathState pathstate;
@@ -299,7 +300,7 @@ public class CloseRedTest extends OpMode {
                         new BezierCurve(
                                 new Pose(82.404, 83.630),
                                 new Pose(85.494, 56.421),
-                                new Pose(140.077, 57.882)
+                                new Pose(130.077, 57.882)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
@@ -335,11 +336,11 @@ public class CloseRedTest extends OpMode {
         sixthchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(82.542, 83.450),
+                                new Pose(82.300, 85.531),
                                 new Pose(129.574, 58.362)
                         )
                 )
-                .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(30))
+                .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
                 .build();
         seventhchain = follower.pathBuilder()
                 .addPath(
@@ -354,7 +355,7 @@ public class CloseRedTest extends OpMode {
                 .addPath(
                         new BezierLine(
                                 new Pose(82.275, 83.461),
-                                new Pose(114.955, 80.852)
+                                new Pose(130, 80.852)
                         )
                 )
                 .setTangentHeadingInterpolation()
@@ -362,7 +363,7 @@ public class CloseRedTest extends OpMode {
         ninthchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(114.955, 80.852),
+                                new Pose(130, 80.852),
                                 new Pose(84.177, 105.331)
                         )
                 )
@@ -409,9 +410,18 @@ public class CloseRedTest extends OpMode {
                     stopShooting();
                     intakedBalls = 0;
                     if(middleTaken) setPathState(PathState.SHOOT_POS_GATE_INTAKE);
-                    else setPathState(PathState.SHOOT_POS_MIDDLE_THREE);
+                    else if(topTaken) setPathState(PathState.SHOOT_POS_TOP_THREE);
+                    else setPathState(PathState.SHOOT_POS_GATE_INTAKE);
                     intake();
                     break;
+                }
+            }
+            case SHOOT_POS_TOP_THREE: {
+                if(!follower.isBusy()) {
+                    intake();
+                    follower.followPath(eighthchain, true);
+                    setPathState(PathState.TOP_THREE_SHOOT_POS);
+                    topTaken = true;
                 }
             }
             case SHOOT_POS_MIDDLE_THREE: {
@@ -448,6 +458,13 @@ public class CloseRedTest extends OpMode {
                     setPathState(PathState.SHOOT_PRELOAD);
                 }
                 break;
+            }
+            case TOP_THREE_SHOOT_POS: {
+                if(!follower.isBusy()) {
+                    follower.followPath(ninthchain, true);
+                    stopIntake();
+                    setPathState(PathState.SHOOT_PRELOAD);
+                }
             }
             default: {
                 telemetry.addLine("Not in an expected state.");
