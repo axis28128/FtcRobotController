@@ -64,8 +64,8 @@ public class CloseRedTest extends OpMode {
 
     public TelemetryManager telemetryM;
     //EVERYTHING THAT FOR SHOOTER RPM LOGIC
-    public static double GOAL_RPM_FAR = 3200, GOAL_RPM_CLOSE = 2750, currentTPS = GOAL_RPM_CLOSE;
-    public static double GOAL_MIN_CLOSE_RPM = 2600, GOAL_MIN_FAR_RPM = 3100;
+    public static double GOAL_RPM_FAR = 3200, GOAL_RPM_CLOSE = 2500, currentTPS = GOAL_RPM_CLOSE;
+    public static double GOAL_MIN_CLOSE_RPM = 2400, GOAL_MIN_FAR_RPM = 3100;
     private boolean shootingFar = false; // tracks which preset is active, so we know which kV to use
     public static double TURRET_TPR = 873;
     public static double TURRET_TICkSFar_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
