@@ -359,6 +359,7 @@ public class CloseRedTest extends OpMode {
                         )
                 )
                 .setTangentHeadingInterpolation()
+                .setVelocityConstraint(0.25)
                 .build();
         ninthchain = follower.pathBuilder()
                 .addPath(
