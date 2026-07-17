@@ -312,7 +312,7 @@ public class CloseRedTest extends OpMode {
                 .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
                 .setVelocityConstraint(0.1)
                 .build();
-        secondchain = follower.pathBuilder()
+        thirdchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
                                 new Pose(140, 58.000),
