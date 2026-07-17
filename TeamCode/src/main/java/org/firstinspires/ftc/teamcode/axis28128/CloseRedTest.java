@@ -306,20 +306,28 @@ public class CloseRedTest extends OpMode {
                 .addPath(
                         new BezierLine(
                                 new Pose(100.000, 58.000),
-                                new Pose(130.000, 58.000)
+                                new Pose(140.000, 58.000)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
-                .setVelocityConstraint(0.25)
+                .setVelocityConstraint(0.1)
                 .build();
-        thirdchain = follower.pathBuilder()
+        secondchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(130.077, 58),
-                                new Pose(80.404, 100.630)
+                                new Pose(140, 58.000),
+                                new Pose(100.000, 58.000)
                         )
                 )
-                .setConstantHeadingInterpolation(Math.toRadians(0))
+                .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
+                .addPath(
+                        new BezierLine(
+                                new Pose(100.000, 58.000),
+                                new Pose(80, 100)
+                        )
+                )
+                .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
+                .setVelocityConstraint(0.1)
                 .build();
         fourthchain = follower.pathBuilder()
                 .addPath(
@@ -365,7 +373,7 @@ public class CloseRedTest extends OpMode {
                         )
                 )
                 .setTangentHeadingInterpolation()
-                .setVelocityConstraint(0.25)
+                .setVelocityConstraint(0.1)
                 .build();
         ninthchain = follower.pathBuilder()
                 .addPath(
