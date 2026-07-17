@@ -166,7 +166,7 @@ public class CloseRedTest extends OpMode {
         follower.update();
         telemetryM.update();
         telemetry.update();
-        if(30 - opModeTimer.getElapsedTimeSeconds() <= 5) {
+        if(30 - opModeTimer.getElapsedTimeSeconds() <= 5 && !follower.isBusy()) {
             PathChain lastChain = follower.pathBuilder()
                     .addPath(
                             new BezierLine(
@@ -176,6 +176,7 @@ public class CloseRedTest extends OpMode {
                     )
                     .setConstantHeadingInterpolation(Math.toRadians(180))
                     .build();
+            follower.followPath(lastChain);
         }
         else statePathUpdate();
     }
