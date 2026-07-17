@@ -409,8 +409,8 @@ public class CloseRedTest extends OpMode {
                 if(!follower.isBusy()) {
                     stopShooting();
                     intakedBalls = 0;
-                    if(middleTaken) setPathState(PathState.SHOOT_POS_GATE_INTAKE);
-                    else if(topTaken) setPathState(PathState.SHOOT_POS_TOP_THREE);
+                    if(!middleTaken) setPathState(PathState.SHOOT_POS_MIDDLE_THREE);
+                    else if(!topTaken) setPathState(PathState.SHOOT_POS_TOP_THREE);
                     else {stopIntake(); stopShooting(); break;};
                     intake();
                     break;
