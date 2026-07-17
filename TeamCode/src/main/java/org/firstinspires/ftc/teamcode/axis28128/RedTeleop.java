@@ -282,7 +282,7 @@ public class RedTeleop extends OpMode {
         double lateral = -gamepad1.left_stick_x;
         double turn    = -gamepad1.right_stick_x;
 
-        follower.setTeleOpDrive(forward, lateral, turn, false, Math.toRadians(180));
+        follower.setTeleOpDrive(forward, lateral, turn, false, 0);
 
         // === TURRET ===
         Pose   currPose    = follower.getPose();
