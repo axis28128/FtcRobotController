@@ -56,7 +56,7 @@ public class CloseRedTest extends OpMode {
     public static double BALL_DETECT_THRESHOLD = 65; // between ball (~40) and gap (~100)
     public static int BALL_DETECT_CONSECUTIVE = 7;    // readings needed to confirm
     private int FarReadingStreak = 0;
-    public static double SHOOT_ADVANCE_MS_FAST = 350, SHOOT_ADVANCE_MS_SORTING = 1000; // tune this — time between each ball feed
+    public static double SHOOT_ADVANCE_MS_FAST = 400, SHOOT_ADVANCE_MS_SORTING = 1000; // tune this — time between each ball feed
     private double nextShootAdvanceTime = 0;
     public static double SHOOTER_POS_FAR = 0.7, SHOOTER_POS_CLOSE = 0.3;
     public boolean sorting = false, globalSorting = false;
@@ -111,7 +111,7 @@ public class CloseRedTest extends OpMode {
 
     public double[] spindexerPos = {0.29, 0.54, 0.78, 0.6, 0.36, 0.12};
     public double measuredDistance = 0;
-    public int spinidx = 0, shotBalls = 0, intakedBalls = 3;
+    public int spinidx = 2, shotBalls = 0, intakedBalls = 3;
     public boolean ballWasDetected = false;
 
     @Override
@@ -167,8 +167,22 @@ public class CloseRedTest extends OpMode {
         follower.update();
         telemetryM.update();
         telemetry.update();
-        // Add this as a class field
-
+        boolean readingIsFar = measuredDistance <= BALL_DETECT_THRESHOLD;
+        if (readingIsFar) {
+            FarReadingStreak++;
+        } else {
+            FarReadingStreak = 0;
+        }
+        boolean ballNearNow = FarReadingStreak >= BALL_DETECT_CONSECUTIVE;
+        if (ballNearNow && !ballWasDetected && spinidx < 2 && pathstate != PathState.SHOOT_POS && pathstate != PathState.SHOOT_PRELOAD) {
+            spinidx++;
+            intakedBalls++;
+        }
+        else if(ballNearNow && !ballWasDetected) intakedBalls++;
+        ballWasDetected = ballNearNow;
+        if (spinidx > 6) spinidx = 0;
+        if (spinidx < 0) spinidx = 0;
+        spindexerServo.setPosition(spindexerPos[spinidx]);
 
         if(30 - opModeTimer.getElapsedTimeSeconds() <= 5 && !follower.isBusy() && !endgamePathTriggered) {
             endgamePathTriggered = true;  // Prevent retriggering
@@ -450,22 +464,6 @@ public class CloseRedTest extends OpMode {
     public void intake() {
         //INTAKE LOGIC FROM TELEOP, CONVERT (and more)
         intake.setPower(-1);
-        boolean readingIsFar = measuredDistance <= BALL_DETECT_THRESHOLD;
-        if (readingIsFar) {
-            FarReadingStreak++;
-        } else {
-            FarReadingStreak = 0;
-        }
-        boolean ballNearNow = FarReadingStreak >= BALL_DETECT_CONSECUTIVE;
-        if (ballNearNow && !ballWasDetected && spinidx < 2) {
-            spinidx++;
-            intakedBalls++;
-        }
-        else if(ballNearNow && !ballWasDetected) intakedBalls++;
-        ballWasDetected = ballNearNow;
-        if (spinidx > 6) spinidx = 0;
-        if (spinidx < 0) spinidx = 0;
-        spindexerServo.setPosition(spindexerPos[spinidx]);
     }
     public void stopIntake() {
         intake.setPower(0);
@@ -488,7 +486,7 @@ public class CloseRedTest extends OpMode {
         transferMotor.setPower(0.8);
         intake.setPower(-0.3);
         if (isShooting) {
-            if (currentTimer.milliseconds() >= nextShootAdvanceTime && spinidx < 5) {
+            if (currentTimer.milliseconds() >= nextShootAdvanceTime && spinidx < 6) {
                 spinidx++; spinidx %= 6; spinidx = Math.max(3, spinidx);
                 nextShootAdvanceTime = currentTimer.milliseconds() + SHOOT_ADVANCE_MS_FAST;
             }
