@@ -433,6 +433,7 @@ public class CloseRedTest extends OpMode {
             }
             case SHOOT_POS_TOP_THREE: {
                 if(!follower.isBusy()) {
+                    follower.setMaxPower(0.2);
                     intake();
                     follower.followPath(eighthchain, true);
                     setPathState(PathState.TOP_THREE_SHOOT_POS);
@@ -453,6 +454,7 @@ public class CloseRedTest extends OpMode {
             case SHOOT_POS_GATE_INTAKE: {
                 if(!follower.isBusy()) {
                     intake();
+                    follower.setMaxPower(0.2);
                     follower.followPath(fourthchain, true);
                     middleTaken = true;
                     setPathState(PathState.GATE_INTAKE_SHOOT_POS);
@@ -461,6 +463,7 @@ public class CloseRedTest extends OpMode {
             }
             case MIDDLE_THREE_SHOOT_POS: {
                 if(!follower.isBusy()) {
+                    follower.setMaxPower(1);
                     follower.followPath(thirdchain, true);
                     stopIntake();
                     setPathState(PathState.SHOOT_PRELOAD);
@@ -477,6 +480,7 @@ public class CloseRedTest extends OpMode {
             }
             case TOP_THREE_SHOOT_POS: {
                 if(!follower.isBusy()) {
+                    follower.setMaxPower(1);
                     follower.followPath(ninthchain, true);
                     stopIntake();
                     setPathState(PathState.SHOOT_PRELOAD);
