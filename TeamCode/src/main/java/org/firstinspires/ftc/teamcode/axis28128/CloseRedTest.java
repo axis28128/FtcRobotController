@@ -98,7 +98,7 @@ public class CloseRedTest extends OpMode {
     public static boolean USE_MANUAL_EXPOSURE = true;       // reduces motion blur while the turret moves
     public static int     CAMERA_EXPOSURE_MS  = 6;
     public static int     CAMERA_GAIN         = 250;
-
+    private boolean endgamePathTriggered = false;
     private VisionPortal      visionPortal;
     private AprilTagProcessor aprilTag;
     private boolean cameraExposureSet = false;
@@ -167,7 +167,12 @@ public class CloseRedTest extends OpMode {
         follower.update();
         telemetryM.update();
         telemetry.update();
-        if(30 - opModeTimer.getElapsedTimeSeconds() <= 5 && !follower.isBusy()) {
+        // Add this as a class field
+
+
+        if(30 - opModeTimer.getElapsedTimeSeconds() <= 5 && !follower.isBusy() && !endgamePathTriggered) {
+            endgamePathTriggered = true;  // Prevent retriggering
+
             PathChain lastChain = follower.pathBuilder()
                     .addPath(
                             new BezierLine(
@@ -182,7 +187,9 @@ public class CloseRedTest extends OpMode {
             turretMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
             turretMotor.setPower(0.3);
         }
-        else statePathUpdate();
+        else if(!endgamePathTriggered) {
+            statePathUpdate();
+        }
     }
     public void transfer(boolean shouldTransfer) {
         bootKickerServo.setPosition(shouldTransfer ? 0.2 : 0);
