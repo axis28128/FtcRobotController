@@ -166,7 +166,7 @@ public class CloseRedTest extends OpMode {
         follower.update();
         telemetryM.update();
         telemetry.update();
-        if(30 - opModeTimer.getElapsedTimeSeconds() >= 5) {
+        if(30 - opModeTimer.getElapsedTimeSeconds() <= 5) {
             PathChain lastChain = follower.pathBuilder()
                     .addPath(
                             new BezierLine(
