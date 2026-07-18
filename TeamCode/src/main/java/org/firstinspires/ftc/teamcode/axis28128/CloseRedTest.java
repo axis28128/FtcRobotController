@@ -54,10 +54,10 @@ public class CloseRedTest extends OpMode {
     private Timer pathTimer, opModeTimer;
 
     // Add fields
-    public static double BALL_DETECT_THRESHOLD = 65; // between ball (~40) and gap (~100)
+    public static double BALL_DETECT_THRESHOLD = 65; // between ball (~40) and gap (~105)
     public static int BALL_DETECT_CONSECUTIVE = 7;    // readings needed to confirm
     private int FarReadingStreak = 0;
-    public static double SHOOT_ADVANCE_MS_FAST = 400, SHOOT_ADVANCE_MS_SORTING = 1000; // tune this — time between each ball feed
+    public static double SHOOT_ADVANCE_MS_FAST = 400, SHOOT_ADVANCE_MS_SORTING = 1050; // tune this — time between each ball feed
     private double nextShootAdvanceTime = 0;
     public static double SHOOTER_POS_FAR = 0.7, SHOOTER_POS_CLOSE = 0.3;
     public boolean sorting = false, globalSorting = false;
@@ -66,7 +66,7 @@ public class CloseRedTest extends OpMode {
     public TelemetryManager telemetryM;
     //EVERYTHING THAT FOR SHOOTER RPM LOGIC
     public static double GOAL_RPM_FAR = 3200, GOAL_RPM_CLOSE = 2500, currentTPS = GOAL_RPM_CLOSE;
-    public static double GOAL_MIN_CLOSE_RPM = 2400, GOAL_MIN_FAR_RPM = 3100;
+    public static double GOAL_MIN_CLOSE_RPM = 2400, GOAL_MIN_FAR_RPM = 3105;
     private boolean shootingFar = false; // tracks which preset is active, so we know which kV to use
     public static double TURRET_TPR = 873;
     public static double TURRET_TICkSFar_PER_RADIAN = TURRET_TPR / (2 * Math.PI);
@@ -192,10 +192,10 @@ public class CloseRedTest extends OpMode {
                     .addPath(
                             new BezierLine(
                                     follower.getPose(),
-                                    new Pose(80, 100)
+                                    new Pose(85, 105)
                             )
                     )
-                    .setConstantHeadingInterpolation(Math.toRadians(180))
+                    .setConstantHeadingInterpolation(Math.toRadians(185))
                     .build();
             follower.followPath(lastChain);
             turretMotor.setTargetPosition(0);
@@ -263,7 +263,7 @@ public class CloseRedTest extends OpMode {
 
         visionPortal = new VisionPortal.Builder()
                 .setCamera(hardwareMap.get(WebcamName.class, CAMERA_NAME))
-                .setCameraResolution(new Size(640, 480))
+                .setCameraResolution(new Size(640, 485))
                 .addProcessor(aprilTag)
                 .build();
     }
@@ -290,7 +290,7 @@ public class CloseRedTest extends OpMode {
                 .addPath(
                         new BezierLine(
                                 new Pose(120.563, 121.422),
-                                new Pose(80.404, 100.630)
+                                new Pose(85.404, 105.630)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(216), Math.toRadians(0))
@@ -298,14 +298,14 @@ public class CloseRedTest extends OpMode {
         secondchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(80.000, 100.000),
-                                new Pose(100.000, 56.000)
+                                new Pose(85.000, 105.000),
+                                new Pose(105.000, 56.000)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
                 .addPath(
                         new BezierLine(
-                                new Pose(100.000, 56.000),
+                                new Pose(105.000, 56.000),
                                 new Pose(135.000, 56.000)
                         )
                 )
@@ -316,14 +316,14 @@ public class CloseRedTest extends OpMode {
                 .addPath(
                         new BezierLine(
                                 new Pose(135, 56.000),
-                                new Pose(100.000, 56.000)
+                                new Pose(105.000, 56.000)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
                 .addPath(
                         new BezierLine(
-                                new Pose(100.000, 56.000),
-                                new Pose(80, 100)
+                                new Pose(105.000, 56.000),
+                                new Pose(85, 105)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
@@ -332,7 +332,7 @@ public class CloseRedTest extends OpMode {
         fourthchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(80.300, 100.531),
+                                new Pose(85.300, 105.531),
                                 new Pose(131, 56)
                         )
                 )
@@ -342,7 +342,7 @@ public class CloseRedTest extends OpMode {
                 .addPath(
                         new BezierLine(
                                 new Pose(131, 56),
-                                new Pose(80.542, 100.450)
+                                new Pose(85.542, 105.450)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(45), Math.toRadians(0))
@@ -350,7 +350,7 @@ public class CloseRedTest extends OpMode {
         sixthchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(80.300, 100),
+                                new Pose(85.300, 105),
                                 new Pose(129.574, 56.362)
                         )
                 )
@@ -360,7 +360,7 @@ public class CloseRedTest extends OpMode {
                 .addPath(
                         new BezierLine(
                                 new Pose(129.574, 56.362),
-                                new Pose(80, 100)
+                                new Pose(85, 105)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(30), Math.toRadians(0))
@@ -368,8 +368,8 @@ public class CloseRedTest extends OpMode {
         eighthchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(80, 100),
-                                new Pose(130, 80.852)
+                                new Pose(85, 105),
+                                new Pose(130, 85.852)
                         )
                 )
                 .setTangentHeadingInterpolation()
@@ -378,8 +378,8 @@ public class CloseRedTest extends OpMode {
         ninthchain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(130, 80.852),
-                                new Pose(80.177, 100.331)
+                                new Pose(130, 85.852),
+                                new Pose(85.177, 105.331)
                         )
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
