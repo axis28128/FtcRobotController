@@ -263,7 +263,7 @@ public class CloseRedTest extends OpMode {
 
         visionPortal = new VisionPortal.Builder()
                 .setCamera(hardwareMap.get(WebcamName.class, CAMERA_NAME))
-                .setCameraResolution(new Size(640, 485))
+                .setCameraResolution(new Size(640, 480))
                 .addProcessor(aprilTag)
                 .build();
     }
