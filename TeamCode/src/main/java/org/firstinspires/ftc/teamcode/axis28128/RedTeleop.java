@@ -45,7 +45,7 @@ public class RedTeleop extends OpMode {
     private Follower follower;
     public static Pose startingPose;
     // Used when no autonomous ran just before this teleop (e.g. teleop-only match):
-    public static Pose NO_AUTO_FALLBACK_POSE = new Pose(85, 105, Math.toRadians(180));
+    public static Pose NO_AUTO_FALLBACK_POSE = new Pose(80, 8, Math.toRadians(180));
     private String startPoseSource = "?";
     public TelemetryManager telemetryM;
 
@@ -98,7 +98,7 @@ public class RedTeleop extends OpMode {
     private double currentDistance = 0;
     private double distRatioDebug = 0;
 
-    public double[] spindexerPos = {0.24, 0.49, 0.72, 0.55, 0.29, 0.06};
+    public double[] spindexerPos = {0.36, 0.62, 0.85, 0.69, 0.44, 0.19};
     public char[] spindexerColor = {'P', 'P', 'G'};
     public String[] patterns = {"GPP", "PGP", "PPG"};
     public static int patternIdx = 0, obj = 4;

@@ -34,24 +34,19 @@ import java.util.concurrent.TimeUnit;
 @Autonomous(name = "New Close Red Test")
 @Configurable
 public class CloseRedTest extends OpMode {
-    public PathChain firstchain, secondchain, thirdchain, fourthchain, fifthchain, sixthchain, seventhchain, eighthchain, ninthchain;
-    private static final Pose startingPose = new Pose(120, 121.4, Math.toRadians(216)); //VERY VERY IMPORTANT - STARTING POSE FOR THE AUTO
-    public boolean middleTaken = false, topTaken = false;
+    public PathChain shootPositionChain, endPositionChain;
+    private static final Pose startingPose = new Pose(120, 121.4, Math.toRadians(216));
+    public static Pose endPosition = new Pose(85, 105, Math.toRadians(180)); // easily changeable end position
     public enum PathState {
         DRIVE_START_POS_SHOOT_POS,
-        SHOOT_POS,
         SHOOT_PRELOAD,
-        SHOOT_STOP,
-        SHOOT_POS_GATE_INTAKE,
-        GATE_INTAKE_SHOOT_POS,
-        SHOOT_POS_MIDDLE_THREE,
-        MIDDLE_THREE_SHOOT_POS,
-        SHOOT_POS_TOP_THREE,
-        TOP_THREE_SHOOT_POS;
-
+        SHOOT_POS,
+        DRIVE_TO_END_POS,
+        IDLE;
     }
     public PathState pathstate;
     private Timer pathTimer, opModeTimer;
+    private boolean endPathStarted = false;
 
     // Add fields
     public static double BALL_DETECT_THRESHOLD = 65; // between ball (~40) and gap (~105)
@@ -99,7 +94,6 @@ public class CloseRedTest extends OpMode {
     public static boolean USE_MANUAL_EXPOSURE = true;       // reduces motion blur while the turret moves
     public static int     CAMERA_EXPOSURE_MS  = 6;
     public static int     CAMERA_GAIN         = 250;
-    private boolean endgamePathTriggered = false;
     private VisionPortal      visionPortal;
     private AprilTagProcessor aprilTag;
     private boolean cameraExposureSet = false;
@@ -185,26 +179,7 @@ public class CloseRedTest extends OpMode {
         if (spinidx < 0) spinidx = 0;
         spindexerServo.setPosition(spindexerPos[spinidx]);
 
-        if(30 - opModeTimer.getElapsedTimeSeconds() <= 5 && !follower.isBusy() && !endgamePathTriggered) {
-            endgamePathTriggered = true;  // Prevent retriggering
-
-            PathChain lastChain = follower.pathBuilder()
-                    .addPath(
-                            new BezierLine(
-                                    follower.getPose(),
-                                    new Pose(85, 105)
-                            )
-                    )
-                    .setConstantHeadingInterpolation(Math.toRadians(185))
-                    .build();
-            follower.followPath(lastChain);
-            turretMotor.setTargetPosition(0);
-            turretMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-            turretMotor.setPower(0.3);
-        }
-        else if(!endgamePathTriggered) {
-            statePathUpdate();
-        }
+        statePathUpdate();
     }
     public void transfer(boolean shouldTransfer) {
         bootKickerServo.setPosition(shouldTransfer ? 0.2 : 0);
@@ -286,7 +261,7 @@ public class CloseRedTest extends OpMode {
         }
     }
     public void buildPaths() {
-        firstchain = follower.pathBuilder()
+        shootPositionChain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
                                 new Pose(120.563, 121.422),
@@ -295,100 +270,21 @@ public class CloseRedTest extends OpMode {
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(216), Math.toRadians(0))
                 .build();
-        secondchain = follower.pathBuilder()
+
+        endPositionChain = follower.pathBuilder()
                 .addPath(
                         new BezierLine(
-                                new Pose(85.000, 105.000),
-                                new Pose(105.000, 56.000)
+                                follower.getPose(),
+                                new Pose(endPosition.getX(), endPosition.getY())
                         )
                 )
-                .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
-                .addPath(
-                        new BezierLine(
-                                new Pose(105.000, 56.000),
-                                new Pose(135.000, 56.000)
-                        )
-                )
-                .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
-                .setVelocityConstraint(0.1)
-                .build();
-        thirdchain = follower.pathBuilder()
-                .addPath(
-                        new BezierLine(
-                                new Pose(135, 56.000),
-                                new Pose(105.000, 56.000)
-                        )
-                )
-                .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
-                .addPath(
-                        new BezierLine(
-                                new Pose(105.000, 56.000),
-                                new Pose(85, 105)
-                        )
-                )
-                .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
-                .setVelocityConstraint(0.1)
-                .build();
-        fourthchain = follower.pathBuilder()
-                .addPath(
-                        new BezierLine(
-                                new Pose(85.300, 105.531),
-                                new Pose(131, 56)
-                        )
-                )
-                .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(45))
-                .build();
-        fifthchain = follower.pathBuilder()
-                .addPath(
-                        new BezierLine(
-                                new Pose(131, 56),
-                                new Pose(85.542, 105.450)
-                        )
-                )
-                .setLinearHeadingInterpolation(Math.toRadians(45), Math.toRadians(0))
-                .build();
-        sixthchain = follower.pathBuilder()
-                .addPath(
-                        new BezierLine(
-                                new Pose(85.300, 105),
-                                new Pose(129.574, 56.362)
-                        )
-                )
-                .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
-                .build();
-        seventhchain = follower.pathBuilder()
-                .addPath(
-                        new BezierLine(
-                                new Pose(129.574, 56.362),
-                                new Pose(85, 105)
-                        )
-                )
-                .setLinearHeadingInterpolation(Math.toRadians(30), Math.toRadians(0))
-                .build();
-        eighthchain = follower.pathBuilder()
-                .addPath(
-                        new BezierLine(
-                                new Pose(85, 105),
-                                new Pose(130, 85.852)
-                        )
-                )
-                .setTangentHeadingInterpolation()
-                .setVelocityConstraint(0.1)
-                .build();
-        ninthchain = follower.pathBuilder()
-                .addPath(
-                        new BezierLine(
-                                new Pose(130, 85.852),
-                                new Pose(85.177, 105.331)
-                        )
-                )
-                .setLinearHeadingInterpolation(Math.toRadians(0), Math.toRadians(0))
+                .setConstantHeadingInterpolation(endPosition.getHeading())
                 .build();
     }
     public void statePathUpdate() {
         switch(pathstate) {
             case DRIVE_START_POS_SHOOT_POS: {
-                follower.followPath(firstchain, true);
+                follower.followPath(shootPositionChain, true);
                 setPathState(PathState.SHOOT_PRELOAD);
                 break;
             }
@@ -415,76 +311,33 @@ public class CloseRedTest extends OpMode {
                 if(!follower.isBusy()) {
                     startShooting();
                     if(pathTimer.getElapsedTimeSeconds() >= 3) {
-                        setPathState(PathState.SHOOT_STOP);
+                        stopShooting();
+                        setPathState(PathState.DRIVE_TO_END_POS);
                     }
                     break;
                 }
             }
-            case SHOOT_STOP: {
-                if(!follower.isBusy()) {
-                    stopShooting();
-                    intakedBalls = 0;
-                    if(!middleTaken) setPathState(PathState.SHOOT_POS_MIDDLE_THREE);
-                    else if(!topTaken) setPathState(PathState.SHOOT_POS_TOP_THREE);
-                    else {stopIntake(); stopShooting(); break;};
-                    intake();
-                    break;
+            case DRIVE_TO_END_POS: {
+                if(!endPathStarted) {
+                    endPositionChain = follower.pathBuilder()
+                            .addPath(
+                                    new BezierLine(
+                                            follower.getPose(),
+                                            new Pose(endPosition.getX(), endPosition.getY())
+                                    )
+                            )
+                            .setConstantHeadingInterpolation(endPosition.getHeading())
+                            .build();
+                    follower.followPath(endPositionChain, true);
+                    endPathStarted = true;
                 }
-            }
-            case SHOOT_POS_TOP_THREE: {
                 if(!follower.isBusy()) {
-                    follower.setMaxPower(0.2);
-                    intake();
-                    follower.followPath(eighthchain, true);
-                    setPathState(PathState.TOP_THREE_SHOOT_POS);
-                    topTaken = true;
+                    setPathState(PathState.IDLE);
                 }
                 break;
             }
-            case SHOOT_POS_MIDDLE_THREE: {
-                if(!follower.isBusy()) {
-                    intake();
-                    follower.followPath(secondchain, true);
-                    setPathState(PathState.MIDDLE_THREE_SHOOT_POS);
-                    middleTaken = true;
-                }
-                if(intakedBalls >= 3) stopIntake();
-                break;
-            }
-            case SHOOT_POS_GATE_INTAKE: {
-                if(!follower.isBusy()) {
-                    intake();
-                    follower.setMaxPower(0.2);
-                    follower.followPath(fourthchain, true);
-                    middleTaken = true;
-                    setPathState(PathState.GATE_INTAKE_SHOOT_POS);
-                }
-                break;
-            }
-            case MIDDLE_THREE_SHOOT_POS: {
-                if(!follower.isBusy()) {
-                    follower.setMaxPower(1);
-                    follower.followPath(thirdchain, true);
-                    stopIntake();
-                    setPathState(PathState.SHOOT_PRELOAD);
-                }
-                break;
-            }
-            case GATE_INTAKE_SHOOT_POS: {
-                if(!follower.isBusy()) {
-                    follower.followPath(fifthchain, true);
-                    stopIntake();
-                    setPathState(PathState.SHOOT_PRELOAD);
-                }
-                break;
-            }
-            case TOP_THREE_SHOOT_POS: {
-                if(!follower.isBusy()) {
-                    follower.setMaxPower(1);
-                    follower.followPath(ninthchain, true);
-                    stopIntake();
-                    setPathState(PathState.SHOOT_PRELOAD);
-                }
+            case IDLE: {
+                follower.breakFollowing();
                 break;
             }
             default: {
@@ -492,12 +345,14 @@ public class CloseRedTest extends OpMode {
                 break;
             }
         }
-
     }
     public void setPathState(PathState newstate) {
         pathstate = newstate;
         telemetry.addData("Ended state in: ", pathTimer.getElapsedTimeSeconds());
         pathTimer.resetTimer();
+        if(newstate == PathState.DRIVE_TO_END_POS) {
+            endPathStarted = false;
+        }
     }
     public void intake() {
         //INTAKE LOGIC FROM TELEOP, CONVERT (and more)

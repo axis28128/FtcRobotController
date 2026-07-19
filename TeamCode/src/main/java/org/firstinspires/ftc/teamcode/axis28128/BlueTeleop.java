@@ -46,7 +46,7 @@ public class BlueTeleop extends OpMode {
     public static Pose startingPose;
     // Used when no autonomous ran just before this teleop (e.g. teleop-only match):
     // park the robot in this corner before starting. Tune to wherever you actually place it.
-    public static Pose NO_AUTO_FALLBACK_POSE = new Pose(80, 8, Math.toRadians(180));
+    public static Pose NO_AUTO_FALLBACK_POSE = new Pose(62, 8, Math.toRadians(0));
     private String startPoseSource = "?";
     public TelemetryManager telemetryM;
 
@@ -99,7 +99,7 @@ public class BlueTeleop extends OpMode {
     private double currentDistance = 0;
     private double distRatioDebug = 0;
 
-    public double[] spindexerPos = {0.24, 0.49, 0.72, 0.55, 0.29, 0.06};
+    public double[] spindexerPos = {0.36, 0.62, 0.85, 0.69, 0.44, 0.19};
     public char[] spindexerColor = {'P', 'P', 'G'};
     public String[] patterns = {"GPP", "PGP", "PPG"};
     public static int patternIdx = 0, obj = 4;
